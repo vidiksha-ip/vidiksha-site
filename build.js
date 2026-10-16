@@ -377,7 +377,6 @@ function build() {
   const emit = (urlPath, html) => { writePage(urlPath, html); urls.push(urlPath); };
 
   data.research = { total: loadResearch().length };
-  require('./lms/curriculum.js').writeCurriculum(); // portal and control panel read the curriculum from lms/shared/courses.js
   emit('/', pages.home(data));
   emit('/blog/', pages.blogIndex(data));
   for (const p of data.posts) emit(p.url, pages.post(data, p));

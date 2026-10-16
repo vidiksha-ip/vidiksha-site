@@ -12,6 +12,15 @@
   function minutes(n) { if (!n) return ''; var h = Math.floor(n / 60), m = n % 60; return (h ? h + ' h ' : '') + (m ? m + ' min' : '').trim(); }
   function slugify(s) { return String(s).toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80); }
   function courseName(slug) { return (cfg.courses && cfg.courses[slug]) || slug; }
+  /** Loads the course list from the database into cfg.courses / cfg.courseRows (mutated in place so references stay valid). */
+  function loadCourses() {
+    return sb.from('courses').select('*').order('sort_order').then(function (r) {
+      Object.keys(cfg.courses).forEach(function (k) { delete cfg.courses[k]; });
+      Object.keys(cfg.courseRows).forEach(function (k) { delete cfg.courseRows[k]; });
+      (r.data || []).forEach(function (c) { cfg.courses[c.slug] = c.title; cfg.courseRows[c.slug] = c; });
+      return r.data || [];
+    });
+  }
   function nl2p(s) { return String(s || '').split(/\n{2,}/).map(function (p) { return '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>'; }).join(''); }
   function initials(name) { return String(name || '?').trim().split(/\s+/).slice(0, 2).map(function (w) { return w[0] || ''; }).join('').toUpperCase(); }
 
@@ -81,5 +90,5 @@
   function download(name, text, type) { var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: type || 'text/csv' })); a.download = name; a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000); }
   function safeName(name) { return String(name).replace(/[^\w.\-]+/g, '_').slice(0, 120); }
 
-  window.LMS = { sb: sb, cfg: cfg, esc: esc, fmtDate: fmtDate, fmtDateTime: fmtDateTime, fmtInr: fmtInr, until: until, minutes: minutes, slugify: slugify, courseName: courseName, nl2p: nl2p, initials: initials, embedUrl: embedUrl, toast: toast, router: router, $: $, $$: $$, render: render, spinner: spinner, empty: empty, field: field, formData: formData, err: err, passwordToggles: passwordToggles, csv: csv, download: download, safeName: safeName };
+  window.LMS = { sb: sb, cfg: cfg, esc: esc, fmtDate: fmtDate, fmtDateTime: fmtDateTime, fmtInr: fmtInr, until: until, minutes: minutes, slugify: slugify, courseName: courseName, loadCourses: loadCourses, nl2p: nl2p, initials: initials, embedUrl: embedUrl, toast: toast, router: router, $: $, $$: $$, render: render, spinner: spinner, empty: empty, field: field, formData: formData, err: err, passwordToggles: passwordToggles, csv: csv, download: download, safeName: safeName };
 })();

@@ -5,7 +5,7 @@
 (function () {
   'use strict';
   var L = window.LMS, sb = L.sb, esc = L.esc, $ = L.$, $$ = L.$$;
-  var CUR = window.VIDIKSHA_COURSES || {};
+  var CUR = {}; // slug -> { title, duration, unitNote }, from the courses table
   var app = document.getElementById('app');
   var session = null, profile = null, courses = [], unread = 0;
 
@@ -82,8 +82,10 @@
     return Promise.all([
       sb.from('profiles').select('*').eq('id', session.user.id).maybeSingle(),
       sb.from('my_courses').select('*'),
-      sb.from('messages').select('id', { count: 'exact', head: true }).eq('user_id', session.user.id).eq('from_staff', true).is('read_at', null)
+      sb.from('messages').select('id', { count: 'exact', head: true }).eq('user_id', session.user.id).eq('from_staff', true).is('read_at', null),
+      L.loadCourses()
     ]).then(function (r) {
+      (r[3] || []).forEach(function (c) { CUR[c.slug] = { title: c.title, duration: c.duration, unitNote: c.unit_note }; });
       profile = r[0].data || { id: session.user.id, email: session.user.email, full_name: session.user.user_metadata && session.user.user_metadata.full_name };
       courses = (r[1].data || []).sort(function (a, b) { return String(a.course_title).localeCompare(b.course_title); });
       unread = r[2].count || 0;

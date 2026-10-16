@@ -238,20 +238,76 @@
   }
 
   /* ------------------------------------------------------------ course content */
+  function coursePills(c) {
+    return (c.published_on_site ? '<span class="pill ok">on vidiksha.in</span>' : '<span class="pill">not on the website</span>') + ' ' + (c.enrol_open ? '<span class="pill ok">enrolment open · ' + L.fmtInr(c.price_inr) + '</span>' : '<span class="pill">enrolment closed</span>') + (c.active ? '' : ' <span class="pill bad">inactive</span>');
+  }
   function courses() {
-    L.render(head('Course content', 'Courses', 'Recorded sessions, materials, assignments and batches for each course.') + '<div class="grid grid-2" id="cc">' + L.spinner() + '</div>');
-    Promise.all([sb.from('lectures').select('course_slug, published'), sb.from('course_roster').select('course_slug'), sb.from('assignments').select('course_slug')]).then(function (r) {
+    L.render(head('Course content', 'Courses', 'Every course, published on the website or still a draft. Open one for its sessions, materials, assignments and students.', '<button class="btn" id="add-course">Add course</button>') + '<div class="grid grid-2" id="cc">' + L.spinner() + '</div>');
+    Promise.all([L.loadCourses(), sb.from('lectures').select('course_slug, published'), sb.from('course_roster').select('course_slug'), sb.from('assignments').select('course_slug')]).then(function (r) {
       var lec = {}, pub = {}, ros = {}, asg = {};
-      (r[0].data || []).forEach(function (l) { lec[l.course_slug] = (lec[l.course_slug] || 0) + 1; if (l.published) pub[l.course_slug] = (pub[l.course_slug] || 0) + 1; });
-      (r[1].data || []).forEach(function (x) { ros[x.course_slug] = (ros[x.course_slug] || 0) + 1; });
-      (r[2].data || []).forEach(function (x) { asg[x.course_slug] = (asg[x.course_slug] || 0) + 1; });
-      $('#cc').innerHTML = Object.keys(COURSES).map(function (s) { return '<a class="card is-link" href="#/course/' + s + '"><h3>' + esc(COURSES[s]) + '</h3><div class="muted small">' + (lec[s] || 0) + ' sessions (' + (pub[s] || 0) + ' published) · ' + (asg[s] || 0) + ' assignments · ' + (ros[s] || 0) + ' students</div></a>'; }).join('');
+      (r[1].data || []).forEach(function (l) { lec[l.course_slug] = (lec[l.course_slug] || 0) + 1; if (l.published) pub[l.course_slug] = (pub[l.course_slug] || 0) + 1; });
+      (r[2].data || []).forEach(function (x) { ros[x.course_slug] = (ros[x.course_slug] || 0) + 1; });
+      (r[3].data || []).forEach(function (x) { asg[x.course_slug] = (asg[x.course_slug] || 0) + 1; });
+      $('#cc').innerHTML = r[0].length ? r[0].map(function (c) { var s = c.slug; return '<a class="card is-link" href="#/course/' + s + '"><p class="eyebrow">' + esc(c.area || 'Course') + '</p><h3>' + esc(c.title) + '</h3><div style="margin:0.25rem 0 0.6rem">' + coursePills(c) + '</div><div class="muted small">' + (lec[s] || 0) + ' sessions (' + (pub[s] || 0) + ' released) · ' + (asg[s] || 0) + ' assignments · ' + (ros[s] || 0) + ' students</div></a>'; }).join('') : L.empty('No courses yet. Add the first one.');
+    });
+    $('#add-course').addEventListener('click', function () { courseDialog({}); });
+  }
+  var AREAS = ['Trademark', 'Patent', 'Copyright', 'Design', 'Licensing'];
+  var lines = function (arr) { return (arr || []).join('\n'); }, splitLines = function (s) { return String(s || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean); };
+  function courseDialog(c) {
+    var isNew = !c.slug;
+    var d = dialog(isNew ? 'Add course' : 'Edit course',
+      '<div class="form-row">' + L.field('Title', '<input type="text" name="title" required value="' + esc(c.title || '') + '" data-title>') + L.field('URL slug' + (isNew ? ' (auto from the title)' : ' (fixed)'), '<input type="text" name="slug" value="' + esc(c.slug || '') + '"' + (isNew ? ' placeholder="auto"' : ' readonly') + '>') + '</div>' +
+      L.field('One-line subtitle (under the title on the course page)', '<input type="text" name="subtitle" value="' + esc(c.subtitle || '') + '">') +
+      L.field('Summary (two or three sentences, used on cards and in search results)', '<textarea name="summary" style="min-height:80px">' + esc(c.summary || '') + '</textarea>') +
+      '<div class="form-row">' + L.field('Area', '<select name="area">' + AREAS.map(function (a) { return '<option' + ((c.area || 'Trademark') === a ? ' selected' : '') + '>' + a + '</option>'; }).join('') + '</select>') + L.field('Level', '<input type="text" name="level" value="' + esc(c.level || 'Beginner to intermediate') + '">') + '</div>' +
+      '<div class="form-row">' + L.field('Price (INR, GST-inclusive)', '<input type="number" name="price_inr" min="1" required value="' + esc(c.price_inr || '') + '">') + L.field('Duration (free text, e.g. 20 hours)', '<input type="text" name="duration" value="' + esc(c.duration || '') + '">') + '</div>' +
+      '<div class="form-row">' + L.field('Sessions are called', '<select name="unit"><option value="sessions"' + (c.unit === 'sessions' ? ' selected' : '') + '>sessions</option><option value="modules"' + (c.unit !== 'sessions' ? ' selected' : '') + '>modules</option></select>') + L.field('Note on each (e.g. 2 hours each, recorded)', '<input type="text" name="unit_note" value="' + esc(c.unit_note || '') + '">') + '</div>' +
+      L.field('Access line (e.g. Recording access for 2 months from the date of registration)', '<input type="text" name="access" value="' + esc(c.access || 'Recording access for 2 months from the date of registration') + '">') +
+      L.field('What you will be able to do (one per line)', '<textarea name="outcomes">' + esc(lines(c.outcomes)) + '</textarea>') +
+      L.field('About the course (one paragraph per line)', '<textarea name="about">' + esc(lines(c.about)) + '</textarea>') +
+      L.field('What is included (one per line)', '<textarea name="includes" style="min-height:80px">' + esc(lines(c.includes)) + '</textarea>') +
+      '<div class="form-row">' + L.field('Take it if (one per line)', '<textarea name="who_for" style="min-height:80px">' + esc(lines(c.who_for)) + '</textarea>') + L.field('Skip it if (one per line)', '<textarea name="not_for" style="min-height:80px">' + esc(lines(c.not_for)) + '</textarea>') + '</div>' +
+      L.field('FAQ (one per line as  Question :: Answer)', '<textarea name="faq">' + esc((c.faq || []).map(function (f) { return f.q + ' :: ' + f.a; }).join('\n')) + '</textarea>') +
+      L.field('Physical kit (optional): first line the kit name, second line the intro sentence, then one item per line', '<textarea name="kit" style="min-height:80px">' + esc(c.kit ? [c.kit.title, c.kit.intro].concat(c.kit.items || []).join('\n') : '') + '</textarea>') +
+      '<div class="form-row">' + L.field('Order on the courses page', '<input type="number" name="sort_order" value="' + esc(c.sort_order || 99) + '">') + '<div></div></div>' +
+      '<label class="check"><input type="checkbox" name="published_on_site"' + (c.published_on_site ? ' checked' : '') + '> <strong>Publish on vidiksha.in</strong> (course page, courses list, home page)</label>' +
+      '<label class="check"><input type="checkbox" name="enrol_open"' + (c.enrol_open ? ' checked' : '') + '> Enrolment open: the website shows Enrol now and takes payment at the price above</label>' +
+      '<p class="fine">Publishing commits the course to the website repository; the site rebuilds in a minute or two. Sessions and their lesson points come from the Sessions tab and are published with the course.</p>',
+      function (f) {
+        var slug = isNew ? L.slugify(f.slug || f.title) : c.slug;
+        if (!slug) throw new Error('Could not make a URL slug from the title.');
+        var kitLines = splitLines(f.kit), kit = kitLines.length >= 2 ? { title: kitLines[0], intro: kitLines[1], items: kitLines.slice(2) } : null;
+        var row = { slug: slug, title: f.title, subtitle: f.subtitle, summary: f.summary, area: f.area, level: f.level, price_inr: Number(f.price_inr), duration: f.duration, unit: f.unit, unit_note: f.unit_note, access: f.access,
+          outcomes: splitLines(f.outcomes), about: splitLines(f.about), includes: splitLines(f.includes), who_for: splitLines(f.who_for), not_for: splitLines(f.not_for),
+          faq: splitLines(f.faq).map(function (l) { var p = l.split('::'); return { q: (p[0] || '').trim(), a: (p.slice(1).join('::') || '').trim() }; }).filter(function (x) { return x.q; }),
+          kit: kit, sort_order: Number(f.sort_order) || 99, enrol_open: !!f.enrol_open, active: true, updated_at: new Date().toISOString() };
+        var wantSite = !!f.published_on_site, wasSite = !!c.published_on_site;
+        return sb.from('courses').upsert(row, { onConflict: 'slug' }).then(must).then(function () {
+          if (wantSite) return sitePublish('course', slug).then(function (j) { L.toast('Saved and published to vidiksha.in', 'ok'); });
+          if (wasSite && !wantSite) return sitePublish('unpublish_course', slug).then(function () { L.toast('Saved and removed from vidiksha.in', 'ok'); });
+          L.toast('Saved', 'ok');
+        }).then(function () { return L.loadCourses(); }).then(function () { location.hash = '#/course/' + slug; if (location.hash === '#/course/' + slug) route(); });
+      });
+    var t = $('[data-title]', d), sl = $('[name=slug]', d);
+    if (isNew) { t.addEventListener('input', function () { if (!sl.dataset.touched) sl.value = L.slugify(t.value); }); sl.addEventListener('input', function () { sl.dataset.touched = '1'; }); }
+  }
+  /** Calls the publish-post function for course publishing; surfaces its error message. */
+  function sitePublish(type, slug) {
+    return sb.auth.getSession().then(function (s) {
+      return fetch(L.cfg.functionsUrl + '/publish-post', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s.data.session.access_token, apikey: L.cfg.anonKey }, body: JSON.stringify({ type: type, slug: slug }) })
+        .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'Publishing failed'); return j; }); });
     });
   }
   function course(slug, q) {
-    var tab = q.tab || 'sessions';
-    L.render(head('Course', L.courseName(slug), '<a href="' + L.cfg.siteUrl + '/courses/' + esc(slug) + '/" target="_blank" rel="noopener">Public page ↗</a>') +
-      '<div class="tabs">' + [['sessions', 'Sessions'], ['materials', 'Materials'], ['assignments', 'Assignments'], ['students', 'Students'], ['batches', 'Batches']].map(function (t) { return '<a href="#/course/' + slug + '?tab=' + t[0] + '" class="' + (tab === t[0] ? 'is-active' : '') + '">' + t[1] + '</a>'; }).join('') + '</div><div id="tab">' + L.spinner() + '</div>');
+    var tab = q.tab || 'sessions', c = L.cfg.courseRows[slug] || { slug: slug, title: L.courseName(slug) };
+    L.render(head('Course', c.title, coursePills(c) + (c.published_on_site ? ' · <a href="' + L.cfg.siteUrl + '/courses/' + esc(slug) + '/" target="_blank" rel="noopener">Public page ↗</a>' : ''), '<button class="btn btn-ghost" id="edit-course">Edit course</button>' + (c.published_on_site ? '<button class="btn" id="republish">Publish changes to vidiksha.in</button>' : '')) +
+      '<div class="tabs">' + [['sessions', 'Sessions'], ['materials', 'Materials'], ['assignments', 'Assignments'], ['students', 'Students'], ['batches', 'Batches']].map(function (t) { return '<a href="#/course/' + slug + '?tab=' + t[0] + '" class="' + (tab === t[0] ? 'is-active' : '') + '">' + t[1] + '</a>'; }).join('') + '</div><p class="status" id="course-st"></p><div id="tab">' + L.spinner() + '</div>');
+    $('#edit-course').addEventListener('click', function () { courseDialog(c); });
+    if ($('#republish')) $('#republish').addEventListener('click', function () {
+      var st = $('#course-st'); st.textContent = 'Publishing to vidiksha.in…'; st.className = 'status';
+      sitePublish('course', slug).then(function (j) { st.innerHTML = 'Published. <a href="' + esc(j.url) + '" target="_blank" rel="noopener">' + esc(j.url) + '</a> updates in a minute or two.'; st.className = 'status is-ok'; }, function (e) { st.textContent = L.err(e); st.className = 'status is-error'; });
+    });
     ({ sessions: lecturesTab, materials: materialsTab, assignments: assignmentsTab, students: studentsTab, batches: batchesTab })[tab](slug);
   }
   function upload(bucket, path, file, onProgress) {
@@ -276,7 +332,7 @@
   function lecturesTab(slug) {
     sb.from('lectures').select('*').eq('course_slug', slug).order('position').then(function (r) {
       var rows = r.data || [];
-      $('#tab').innerHTML = '<div class="toolbar"><button class="btn" id="add">Add session</button><button class="btn btn-ghost" id="publish-cur">Publish curriculum to vidiksha.in</button><span class="muted small">This list is the curriculum students see. Attach a recording and tick "released" when a session is ready to watch.</span></div><p class="status" id="pub-st"></p>' +
+      $('#tab').innerHTML = '<div class="toolbar"><button class="btn" id="add">Add session</button><span class="muted small">This list is the curriculum students see. Attach a recording and tick "released" when a session is ready to watch. Changes reach vidiksha.in when you press "Publish changes" above.</span></div>' +
         '<ol class="cur-list">' + rows.map(function (l, i) {
           var ready = l.published && (l.video_url || l.video_path) && (!l.release_at || new Date(l.release_at) <= new Date());
           return '<li class="cur-item"><div class="cur-num">' + String(l.position).padStart(2, '0') + '</div><div class="cur-body"><div class="cur-top"><strong>' + esc(l.title) + '</strong> ' +
@@ -291,12 +347,6 @@
       $$('[data-del]').forEach(function (b) { b.addEventListener('click', function () { if (!confirmDelete('this session, its recording link and the progress records of students who watched it')) return; sb.from('lectures').delete().eq('id', b.getAttribute('data-del')).then(function () { var rest = rows.filter(function (x) { return x.id !== b.getAttribute('data-del'); }); return renumber(rest); }).then(function () { lecturesTab(slug); }); }); });
       $$('[data-up]').forEach(function (b) { b.addEventListener('click', function () { move(b.getAttribute('data-up'), -1); }); });
       $$('[data-down]').forEach(function (b) { b.addEventListener('click', function () { move(b.getAttribute('data-down'), 1); }); });
-      $('#publish-cur').addEventListener('click', function () {
-        var st = $('#pub-st'); st.textContent = 'Publishing the curriculum to the website…'; st.className = 'status';
-        sb.auth.getSession().then(function (s) {
-          return fetch(L.cfg.functionsUrl + '/publish-post', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s.data.session.access_token, apikey: L.cfg.anonKey }, body: JSON.stringify({ type: 'curriculum', slug: slug, sessions: rows.map(function (l) { return { title: l.title, lessons: l.lessons || [] }; }) }) }).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'Failed'); return j; }); });
-        }).then(function (j) { st.innerHTML = 'Published. The course page at <a href="' + esc(j.url) + '" target="_blank" rel="noopener">' + esc(j.url) + '</a> updates in a minute or two.'; st.className = 'status is-ok'; }, function (e) { st.textContent = L.err(e); st.className = 'status is-error'; });
-      });
     });
   }
   function lecture(id) {
@@ -479,7 +529,7 @@
       me = r.data || null;
       if (me && !me.full_name) { me.full_name = session.user.user_metadata && session.user.user_metadata.full_name; }
       if (me) sb.from('activity_log').insert({ user_id: session.user.id, event: 'control_login' }).then(function () {});
-      route();
+      (me ? L.loadCourses() : Promise.resolve()).then(route, route);
     });
   }
   window.addEventListener('hashchange', route);

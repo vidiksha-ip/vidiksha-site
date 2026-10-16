@@ -1,7 +1,10 @@
-// Publishes a blog post from the control panel to the website repository.
-// The site is static and built from content/blog/<slug>.md on every push, so "publishing" is a commit.
+// Publishes from the control panel to the website repository: blog posts, and courses with their curriculum.
+// The site is static and built from content/ on every push, so "publishing" is a commit.
 //
-//   POST /functions/v1/publish-post   { title, slug, description, category, course, date, body, mode }
+//   POST /functions/v1/publish-post   { title, slug, description, category, course, date, body, mode }   blog post
+//                                     { type: "course", slug }             write content/courses/<slug>.json from the database
+//                                     { type: "unpublish_course", slug }   remove that file (course disappears from the site)
+//                                     { type: "curriculum", slug, sessions } rewrite only the modules of an existing course file
 //   Authorization: Bearer <the staff member's Supabase session token>
 //
 // Deploy:  supabase functions deploy publish-post --no-verify-jwt   (the function checks the token itself)
@@ -52,7 +55,45 @@ Deno.serve(async (req) => {
     const b = await req.json().catch(() => ({}));
     const gh = (p: string, init: RequestInit = {}) => fetch(`https://api.github.com/repos/${GH_REPO}/contents/${p}`, { ...init, headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "Content-Type": "application/json", "User-Agent": "vidiksha-control-panel", ...(init.headers || {}) } });
 
-    // Curriculum: rewrite the "modules" of content/courses/<slug>.json so the public course page matches the portal.
+    // Whole course: write content/courses/<slug>.json from the database (course row + sessions), or remove it.
+    if (b.type === "course" || b.type === "unpublish_course") {
+      const cslug = String(b.slug ?? "").replace(/[^a-z0-9-]/g, "");
+      if (!cslug) return json({ error: "Course slug is required." }, 400, origin);
+      const cpath = `content/courses/${cslug}.json`;
+      const cur = await gh(`${cpath}?ref=${GH_BRANCH}`);
+      const sha = cur.ok ? (await cur.json()).sha : undefined;
+      if (b.type === "unpublish_course") {
+        if (!sha) return json({ ok: true, removed: false, note: "The course was not on the website." }, 200, origin);
+        const del = await gh(cpath, { method: "DELETE", body: JSON.stringify({ message: `Remove course from the website: ${cslug}\n\nUnpublished from the control panel by ${staff.email}`, sha, branch: GH_BRANCH, committer: { name: "VIDIKSHA Control Panel", email: "team@vidiksha.in" } }) });
+        const resd = await del.json();
+        if (!del.ok) { console.error("github", resd); return json({ error: `GitHub refused the removal: ${resd.message ?? del.status}` }, 502, origin); }
+        await fetch(`${SUPABASE_URL}/rest/v1/courses?slug=eq.${cslug}`, { method: "PATCH", headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ published_on_site: false }) });
+        return json({ ok: true, removed: true, url: `${SITE_URL}/courses/` }, 200, origin);
+      }
+      const h = { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` };
+      const [cr, lr] = await Promise.all([
+        fetch(`${SUPABASE_URL}/rest/v1/courses?slug=eq.${cslug}&select=*`, { headers: h }),
+        fetch(`${SUPABASE_URL}/rest/v1/lectures?course_slug=eq.${cslug}&select=title,lessons,position&order=position`, { headers: h }),
+      ]);
+      const course = cr.ok ? (await cr.json())[0] : null;
+      if (!course) return json({ error: "No such course in the database." }, 404, origin);
+      const lectures = lr.ok ? await lr.json() : [];
+      const file = {
+        order: course.sort_order ?? 99, featured: !!course.featured, title: course.title, subtitle: course.subtitle ?? "", area: course.area ?? "", level: course.level ?? "",
+        duration: course.duration ?? "", unit: course.unit ?? "modules", unitNote: course.unit_note ?? "", price: Number(course.price_inr), enrolOpen: !!course.enrol_open,
+        summary: course.summary ?? "", outcomes: course.outcomes ?? [], about: course.about ?? [],
+        modules: lectures.map((l: Record<string, unknown>) => ({ title: l.title, lessons: Array.isArray(l.lessons) ? l.lessons : [] })),
+        access: course.access ?? "Lifetime access", includes: course.includes ?? [], kit: course.kit ?? undefined, whoFor: course.who_for ?? [], notFor: course.not_for ?? [], faq: course.faq ?? [],
+      };
+      if (!file.kit) delete (file as Record<string, unknown>).kit;
+      const put = await gh(cpath, { method: "PUT", body: JSON.stringify({ message: `${sha ? "Update" : "Add"} course on the website: ${course.title}\n\nPublished from the control panel by ${staff.email}`, content: b64(JSON.stringify(file, null, 2) + "\n"), branch: GH_BRANCH, sha, committer: { name: "VIDIKSHA Control Panel", email: "team@vidiksha.in" } }) });
+      const resp = await put.json();
+      if (!put.ok) { console.error("github", resp); return json({ error: `GitHub refused the commit: ${resp.message ?? put.status}` }, 502, origin); }
+      await fetch(`${SUPABASE_URL}/rest/v1/courses?slug=eq.${cslug}`, { method: "PATCH", headers: { ...h, "Content-Type": "application/json" }, body: JSON.stringify({ published_on_site: true, site_published_at: new Date().toISOString() }) });
+      return json({ ok: true, slug: cslug, url: `${SITE_URL}/courses/${cslug}/`, commit: resp.commit?.sha }, 200, origin);
+    }
+
+    // Curriculum only: rewrite the "modules" of content/courses/<slug>.json so the public course page matches the portal.
     if (b.type === "curriculum") {
       const cslug = String(b.slug ?? "").replace(/[^a-z0-9-]/g, "");
       const sessions = Array.isArray(b.sessions) ? b.sessions : [];
