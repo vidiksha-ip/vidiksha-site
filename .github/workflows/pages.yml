@@ -37,3 +37,40 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # The learning portal (portal.vidiksha.in) and the control panel (control.vidiksha.in) are separate GitHub Pages
+  # sites, one repository each, because Pages serves one site per repository. This job builds both apps from lms/
+  # and pushes each to the gh-pages branch of its repository with the LMS_DEPLOY_TOKEN secret: a fine-grained token
+  # of the vidiksha-ip account with "Contents: read and write" on vidiksha-portal and vidiksha-control only.
+  # Skipped quietly until that secret exists.
+  lms:
+    runs-on: ubuntu-latest
+    if: ${{ vars.LMS_DEPLOY_ENABLED == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node lms/build.js
+      - name: Publish the learning portal
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          personal_token: ${{ secrets.LMS_DEPLOY_TOKEN }}
+          external_repository: vidiksha-ip/vidiksha-portal
+          publish_branch: gh-pages
+          publish_dir: lms/dist/portal
+          force_orphan: true
+          user_name: VIDIKSHA Deploy
+          user_email: team@vidiksha.in
+          commit_message: 'Portal build from vidiksha-site ${{ github.sha }}'
+      - name: Publish the control panel
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          personal_token: ${{ secrets.LMS_DEPLOY_TOKEN }}
+          external_repository: vidiksha-ip/vidiksha-control
+          publish_branch: gh-pages
+          publish_dir: lms/dist/control
+          force_orphan: true
+          user_name: VIDIKSHA Deploy
+          user_email: team@vidiksha.in
+          commit_message: 'Control panel build from vidiksha-site ${{ github.sha }}'
