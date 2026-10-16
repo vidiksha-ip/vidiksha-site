@@ -245,6 +245,34 @@ async function invoiceDownload(req: Request, origin: string | null) {
   return new Response(pdf, { status: 200, headers: { ...cors(origin), "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="VIDIKSHA-invoice-${e.invoice_no.replace(/\//g, "-")}.pdf"`, "Cache-Control": "private, no-store" } });
 }
 
+/** POST /register-session: a live-training registration from the website. No account, no email: the row goes into
+ *  training_registrations (linked to an existing account when the email has one) and the Google Sheet, and the
+ *  session's WhatsApp group link comes back for the thank-you message. */
+async function registerSession(req: Request, origin: string | null) {
+  const b = await req.json().catch(() => ({})) as Json;
+  const f = {
+    session_slug: clean(b.session_slug, 120), full_name: clean(b.full_name, 120), email: clean(b.email, 200).toLowerCase(),
+    whatsapp: clean(b.whatsapp, 30), profession: clean(b.profession, 80), qualification: clean(b.qualification, 80),
+  };
+  if (!f.session_slug || f.full_name.length < 2 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email) || !/^\+?[0-9][0-9 \-]{7,16}$/.test(f.whatsapp) || !f.profession || !f.qualification) {
+    return json({ error: "Please complete every field. The WhatsApp number needs a country code." }, 400, origin);
+  }
+  const sessions = await db(`training_sessions?slug=eq.${encodeURIComponent(f.session_slug)}&select=slug,title,starts_at,whatsapp_group_url`);
+  const s = sessions?.[0];
+  const title = s?.title || clean(b.session_title, 200) || f.session_slug;
+  const date = s ? new Date(s.starts_at).toLocaleDateString("sv-SE", { timeZone: "Asia/Kolkata" }) : (clean(b.session_date, 10) || null);
+  const whatsapp = s?.whatsapp_group_url || env("TRAINING_WHATSAPP_GROUP") || null;
+
+  const existing = await db(`training_registrations?session_slug=eq.${encodeURIComponent(f.session_slug)}&email=ilike.${encodeURIComponent(f.email)}&select=id`);
+  if (existing?.length) return json({ ok: true, already: true, whatsapp }, 200, origin);
+
+  let userId: string | null = null;
+  try { userId = await rpc("find_user_id_by_email", { addr: f.email }); } catch (e) { console.error("user lookup", String(e)); }
+  await db("training_registrations", { method: "POST", body: JSON.stringify({ user_id: userId, session_slug: f.session_slug, session_title: title, session_date: date, full_name: f.full_name, email: f.email, whatsapp: f.whatsapp, profession: f.profession, qualification: f.qualification }) });
+  await sendToSheet({ session_title: title, session_date: date, full_name: f.full_name, email: f.email, whatsapp: f.whatsapp, profession: f.profession, qualification: f.qualification, account_status: userId ? "existing account" : "registered without account", source: "website" });
+  return json({ ok: true, whatsapp }, 200, origin);
+}
+
 /* ---- routes ---- */
 async function createOrder(req: Request, origin: string | null) {
   if (!RZP_KEY_ID || !RZP_KEY_SECRET) return json({ error: "Payments are not configured yet." }, 503, origin);
@@ -326,6 +354,7 @@ Deno.serve(async (req) => {
     if (path.endsWith("/webhook") && req.method === "POST") return await webhook(req);
     if (path.endsWith("/retry") && req.method === "POST") return await retry(req, origin);
     if (path.endsWith("/invoice") && req.method === "GET") return await invoiceDownload(req, origin);
+    if (path.endsWith("/register-session") && req.method === "POST") return await registerSession(req, origin);
     if (path.endsWith("/status")) return json({ ok: true, razorpay: !!(RZP_KEY_ID && RZP_KEY_SECRET), webhook: !!RZP_WEBHOOK_SECRET, sheet: !!SHEET_URL, email: !!RESEND_KEY, gstin: !!SELLER.gstin, portal: PORTAL_URL || null }, 200, origin);
     return json({ error: "Not found" }, 404, origin);
   } catch (e) {

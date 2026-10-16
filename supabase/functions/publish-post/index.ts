@@ -115,6 +115,7 @@ Deno.serve(async (req) => {
       const ist = new Date(s.starts_at).toLocaleString("sv-SE", { timeZone: "Asia/Kolkata" }).replace(" ", "T") + "+05:30";
       const file: Record<string, unknown> = { slug: sslug, title: s.title, summary: s.summary ?? "", format: s.format ?? "", certificate: s.certificate ?? "", area: s.area ?? "", datetime: ist, duration: Number(s.duration_min) || 180, price: Number(s.price_inr) || 0, platform: s.platform ?? "Microsoft Teams" };
       if (s.replay_url) file.replayUrl = s.replay_url;
+      if (s.whatsapp_group_url) file.whatsappGroup = s.whatsapp_group_url;
       if (s.external_register_url) file.externalRegisterUrl = s.external_register_url;
       const put = await gh(spath, { method: "PUT", body: JSON.stringify({ message: `${sha ? "Update" : "Add"} training session on the website: ${s.title}\n\nPublished from the control panel by ${staff.email}`, content: b64(JSON.stringify(file, null, 2) + "\n"), branch: GH_BRANCH, sha, committer: { name: "VIDIKSHA Control Panel", email: "team@vidiksha.in" } }) });
       const resp = await put.json();
