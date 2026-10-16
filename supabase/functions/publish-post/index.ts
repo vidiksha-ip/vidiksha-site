@@ -19,7 +19,7 @@ const GH_TOKEN = Deno.env.get("GITHUB_TOKEN") ?? "";
 const GH_REPO = Deno.env.get("GITHUB_REPO") ?? "vidiksha-ip/vidiksha-site";
 const GH_BRANCH = Deno.env.get("GITHUB_BRANCH") ?? "main";
 const SITE_URL = Deno.env.get("SITE_URL") ?? "https://vidiksha.in";
-const ALLOWED = (Deno.env.get("ALLOWED_ORIGINS") ?? "https://control.vidiksha.in,http://localhost:4323").split(",").map((s) => s.trim());
+const ALLOWED = (Deno.env.get("ALLOWED_ORIGINS") ?? "https://control.vidiksha.in,http://control.vidiksha.in,http://localhost:4323").split(",").map((s) => s.trim());
 const CATEGORIES = ["Trademark", "Patent", "Copyright", "Design", "Licensing"];
 
 function cors(origin: string | null) {

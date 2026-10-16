@@ -269,37 +269,56 @@
     if (isNew) { t.addEventListener('input', function () { if (!sl.dataset.touched) sl.value = L.slugify(t.value); }); sl.addEventListener('input', function () { sl.dataset.touched = '1'; }); }
   }
   function training() {
-    L.render(head('Training sessions', 'Live training sessions', 'Sessions on the website and everyone who registered for each.', '<button class="btn btn-ghost" id="csv">Export registrations CSV</button><button class="btn" id="add">Add session</button>') + '<p class="status" id="tr-st"></p><div id="sessions">' + L.spinner() + '</div><div id="tbl"></div>');
-    Promise.all([sb.from('training_session_overview').select('*').order('starts_at', { ascending: false }), sb.from('training_registrations').select('*').order('session_date', { ascending: false }).order('created_at', { ascending: false })]).then(function (r) {
-      var sessions = r[0].data || [], rows = r[1].data || [], groups = {};
-      rows.forEach(function (x) { (groups[x.session_slug] = groups[x.session_slug] || { title: x.session_title, date: x.session_date, rows: [] }).rows.push(x); });
-      var now = new Date();
+    L.render(head('Training sessions', 'Live training sessions', 'Click a session for its participants. Show and Hide control whether it appears on vidiksha.in.', '<button class="btn btn-ghost" id="csv">Export all registrations</button><button class="btn" id="add">Add session</button>') + '<p class="status" id="tr-st"></p><div id="sessions">' + L.spinner() + '</div>');
+    Promise.all([sb.from('training_session_overview').select('*').order('starts_at', { ascending: false }), sb.from('training_registrations').select('*').order('created_at', { ascending: false })]).then(function (r) {
+      var sessions = r[0].data || [], regs = r[1].data || [], now = new Date();
+      var counts = {}; regs.forEach(function (x) { counts[x.session_slug] = (counts[x.session_slug] || 0) + 1; });
+      // Registrations whose session was removed still need a home.
+      Object.keys(counts).forEach(function (k) { if (!sessions.some(function (s) { return s.slug === k; })) { var x = regs.filter(function (y) { return y.session_slug === k; })[0]; sessions.push({ slug: k, title: x.session_title, starts_at: x.session_date, removed: true, registrations: counts[k] }); } });
       $('#sessions').innerHTML = sessions.length ? table([
-        { label: 'When', nowrap: true, html: function (s) { var d = new Date(s.starts_at); return esc(L.fmtDate(d)) + '<span class="sub">' + esc(d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })) + ' IST · ' + esc(L.minutes(s.duration_min)) + '</span>' + (d < now ? '<span class="pill">past</span>' : '<span class="pill ok">upcoming</span>'); } },
-        { label: 'Session', html: function (s) { return '<strong>' + esc(s.title) + '</strong><span class="sub">' + esc(s.area || '') + ' · ' + (s.price_inr ? L.fmtInr(s.price_inr) : 'Free') + ' · ' + esc(s.platform) + '</span>'; } },
-        { label: 'On the website', html: function (s) { return s.published_on_site ? '<span class="pill ok">shown</span>' : '<span class="pill">hidden</span>'; } },
-        { label: 'Registered', html: function (s) { return '<a href="#reg-' + esc(s.slug) + '">' + s.registrations + '</a>'; } },
-        { label: '', html: function (s) { return '<button class="btn btn-ghost btn-sm" data-edit="' + esc(s.slug) + '">Edit</button> ' + (s.published_on_site ? '<button class="btn btn-ghost btn-sm" data-hide="' + esc(s.slug) + '">Hide</button>' : '<button class="btn btn-sm" data-show="' + esc(s.slug) + '">Show</button>') + ' <button class="btn btn-danger btn-sm" data-del="' + esc(s.slug) + '">Remove</button>'; } }
+        { label: 'When', nowrap: true, html: function (s) { var d = new Date(s.starts_at); return esc(L.fmtDate(d)) + (s.removed ? '' : '<span class="sub">' + esc(d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })) + ' IST · ' + esc(L.minutes(s.duration_min)) + '</span>') + (s.removed ? '<span class="pill bad">removed</span>' : d < now ? '<span class="pill">past</span>' : '<span class="pill ok">upcoming</span>'); } },
+        { label: 'Session', html: function (s) { return '<a href="#/training/' + encodeURIComponent(s.slug) + '"><strong>' + esc(s.title) + '</strong></a>' + (s.removed ? '' : '<span class="sub">' + esc(s.area || '') + ' · ' + (s.price_inr ? L.fmtInr(s.price_inr) : 'Free') + ' · ' + esc(s.platform || '') + '</span>'); } },
+        { label: 'Website', html: function (s) { return s.removed ? '' : s.published_on_site ? '<span class="pill ok">shown</span>' : '<span class="pill">hidden</span>'; } },
+        { label: 'Registered', html: function (s) { return '<a href="#/training/' + encodeURIComponent(s.slug) + '">' + (s.registrations || 0) + '</a>'; } },
+        { label: '', html: function (s) { return s.removed ? '' : '<a class="btn btn-ghost btn-sm" href="#/training/' + encodeURIComponent(s.slug) + '">Participants</a> <button class="btn btn-ghost btn-sm" data-edit="' + esc(s.slug) + '">Edit</button> ' + (s.published_on_site ? '<button class="btn btn-ghost btn-sm" data-hide="' + esc(s.slug) + '">Hide</button>' : '<button class="btn btn-sm" data-show="' + esc(s.slug) + '">Show</button>'); } }
       ], sessions) : L.empty('No sessions yet. Add the first one.');
-      var all = sessions.map(function (s) { return s.slug; }); Object.keys(groups).forEach(function (k) { if (all.indexOf(k) < 0) all.push(k); });
-      $('#tbl').innerHTML = all.map(function (k) {
-        var s = sessions.filter(function (x) { return x.slug === k; })[0], g = groups[k] || { title: s ? s.title : k, date: s ? s.starts_at : null, rows: [] };
-        return '<div class="section" id="reg-' + esc(k) + '"><div class="section-head"><h2>' + esc(s ? s.title : g.title) + '</h2><span class="muted">' + esc(L.fmtDate(s ? s.starts_at : g.date)) + ' · ' + g.rows.length + ' registered' + (s ? '' : ' · session no longer listed') + '</span></div>' +
-          (g.rows.length ? table([{ label: '#', get: function (x, i) { return ''; }, html: function (x) { return String(g.rows.indexOf(x) + 1); } }, { label: 'Registered', nowrap: true, get: function (x) { return L.fmtDateTime(x.created_at); } }, { label: 'Name', html: function (x) { return (x.user_id ? '<a href="#/student/' + x.user_id + '"><strong>' + esc(x.full_name) + '</strong></a>' : '<strong>' + esc(x.full_name) + '</strong>') + '<span class="sub">' + esc(x.email) + '</span>'; } }, { label: 'WhatsApp', nowrap: true, key: 'whatsapp' }, { label: 'Profession', key: 'profession' }, { label: 'Qualification', key: 'qualification' }], g.rows) : L.empty('Nobody has registered yet.')) + '</div>';
-      }).join('');
       var st = $('#tr-st');
       var pub = function (type, slug, label) { st.textContent = label + '…'; st.className = 'status'; sitePublish(type, slug).then(function () { st.textContent = ''; L.toast(type === 'session' ? 'Shown on vidiksha.in' : 'Hidden from vidiksha.in', 'ok'); training(); }, function (e) { st.textContent = L.err(e); st.className = 'status is-error'; }); };
       $('#add').addEventListener('click', function () { sessionDialog({}); });
       $$('[data-edit]').forEach(function (b) { b.addEventListener('click', function () { sessionDialog(sessions.filter(function (x) { return x.slug === b.getAttribute('data-edit'); })[0]); }); });
       $$('[data-hide]').forEach(function (b) { b.addEventListener('click', function () { pub('unpublish_session', b.getAttribute('data-hide'), 'Hiding from the website'); }); });
       $$('[data-show]').forEach(function (b) { b.addEventListener('click', function () { pub('session', b.getAttribute('data-show'), 'Publishing to the website'); }); });
-      $$('[data-del]').forEach(function (b) { b.addEventListener('click', function () {
-        var slug = b.getAttribute('data-del'), s = sessions.filter(function (x) { return x.slug === slug; })[0];
-        if (!confirmDelete('this session' + (s && s.registrations ? ' (its ' + s.registrations + ' registrations stay in the list below)' : ''))) return;
-        var first = s && s.published_on_site ? sitePublish('unpublish_session', slug) : Promise.resolve();
-        first.then(function () { return sb.from('training_sessions').delete().eq('slug', slug).then(must); }).then(function () { L.toast('Session removed', 'ok'); training(); }, function (e) { L.toast(L.err(e), 'error'); });
-      }); });
-      $('#csv').addEventListener('click', function () { L.download('vidiksha-training-registrations.csv', L.csv(rows, ['session_title', 'session_date', 'created_at', 'full_name', 'email', 'whatsapp', 'profession', 'qualification'].map(function (k) { return { label: k, key: k }; }))); });
+      $('#csv').addEventListener('click', function () { L.download('vidiksha-training-registrations.csv', L.csv(regs, ['session_title', 'session_date', 'created_at', 'full_name', 'email', 'whatsapp', 'profession', 'qualification'].map(function (k) { return { label: k, key: k }; }))); });
+    });
+  }
+  function trainingSession(slug) {
+    L.render(L.spinner());
+    Promise.all([sb.from('training_session_overview').select('*').eq('slug', slug).maybeSingle(), sb.from('training_registrations').select('*').eq('session_slug', slug).order('created_at')]).then(function (r) {
+      var s = r[0].data, regs = r[1].data || [];
+      if (!s && !regs.length) return L.render(L.empty('No such session.'));
+      var title = s ? s.title : regs[0].session_title, when = s ? new Date(s.starts_at) : (regs[0].session_date ? new Date(regs[0].session_date) : null);
+      L.render(head('Training session', title, '<a href="#/training">← All sessions</a>' + (when ? ' · ' + esc(L.fmtDate(when)) + (s ? ', ' + esc(when.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })) + ' IST · ' + esc(L.minutes(s.duration_min)) : '') : '') + (s ? ' · ' + (s.price_inr ? L.fmtInr(s.price_inr) : 'Free') + ' · ' + esc(s.platform || '') + ' · ' + (s.published_on_site ? '<span class="pill ok">shown on vidiksha.in</span>' : '<span class="pill">hidden from the website</span>') : ' · <span class="pill bad">session removed; registrations kept</span>'),
+        (s ? '<button class="btn btn-ghost" id="edit">Edit</button>' + (s.published_on_site ? '<button class="btn btn-ghost" id="hide">Hide from website</button>' : '<button class="btn" id="show">Show on website</button>') + '<button class="btn btn-danger" id="del">Remove session</button>' : '') + (regs.length ? '<button class="btn btn-ghost" id="csv">Export CSV</button>' : '')) +
+        '<p class="status" id="ts-st"></p>' + (s && s.summary ? '<p class="muted" style="max-width:70ch">' + esc(s.summary) + '</p>' : '') +
+        '<div class="section-head"><h2>Participants</h2><span class="muted">' + regs.length + ' registered</span></div>' +
+        (regs.length ? table([
+          { label: '#', nowrap: true, html: function (x) { return String(regs.indexOf(x) + 1); } },
+          { label: 'Name', html: function (x) { return (x.user_id ? '<a href="#/student/' + x.user_id + '"><strong>' + esc(x.full_name) + '</strong></a>' : '<strong>' + esc(x.full_name) + '</strong>') + '<span class="sub">' + esc(x.email) + '</span>'; } },
+          { label: 'WhatsApp', nowrap: true, key: 'whatsapp' }, { label: 'Profession', key: 'profession' }, { label: 'Qualification', key: 'qualification' },
+          { label: 'Registered', nowrap: true, get: function (x) { return L.fmtDateTime(x.created_at); } },
+          { label: 'Account', html: function (x) { return x.user_id ? '<span class="pill ok">yes</span>' : '<span class="pill warn">no account</span>'; } }
+        ], regs) : L.empty('Nobody has registered yet. Registrations arrive from the form on vidiksha.in.')));
+      var st = $('#ts-st');
+      var pub = function (type, label) { st.textContent = label + '…'; st.className = 'status'; sitePublish(type, slug).then(function () { L.toast(type === 'session' ? 'Shown on vidiksha.in' : 'Hidden from vidiksha.in', 'ok'); trainingSession(slug); }, function (e) { st.textContent = L.err(e); st.className = 'status is-error'; }); };
+      if ($('#edit')) $('#edit').addEventListener('click', function () { sessionDialog(s); });
+      if ($('#hide')) $('#hide').addEventListener('click', function () { pub('unpublish_session', 'Hiding from the website'); });
+      if ($('#show')) $('#show').addEventListener('click', function () { pub('session', 'Publishing to the website'); });
+      if ($('#del')) $('#del').addEventListener('click', function () {
+        if (!confirmDelete('this session' + (regs.length ? ' (its ' + regs.length + ' registrations are kept and stay visible here)' : ''))) return;
+        st.textContent = 'Removing…'; st.className = 'status';
+        (s.published_on_site ? sitePublish('unpublish_session', slug) : Promise.resolve()).then(function () { return sb.from('training_sessions').delete().eq('slug', slug).then(must); }).then(function () { L.toast('Session removed', 'ok'); location.hash = '#/training'; }, function (e) { st.textContent = 'Could not remove: ' + L.err(e); st.className = 'status is-error'; });
+      });
+      if ($('#csv')) $('#csv').addEventListener('click', function () { L.download('vidiksha-' + slug + '-registrations.csv', L.csv(regs, ['full_name', 'email', 'whatsapp', 'profession', 'qualification', 'created_at'].map(function (k) { return { label: k, key: k }; }))); });
     });
   }
 
@@ -588,7 +607,7 @@
 
   /* ------------------------------------------------------------ routing */
   var routes = L.router({
-    '': overview, 'students': students, 'student/:id': function (p) { student(p.id); }, 'enrolments': enrolments, 'training': training,
+    '': overview, 'students': students, 'student/:id': function (p) { student(p.id); }, 'enrolments': enrolments, 'training': training, 'training/:slug': function (p) { trainingSession(p.slug); },
     'courses': courses, 'course/:slug': function (p, q) { course(p.slug, q); }, 'lecture/:id': function (p) { lecture(p.id); },
     'grading': grading, 'assignment/:id': function (p, q) { assignment(p.id, q); }, 'notices': notices, 'messages': messages, 'blog': blog, 'team': team
   }, function () { L.render(L.empty('Page not found.')); });
