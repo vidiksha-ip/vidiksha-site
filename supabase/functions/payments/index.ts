@@ -1,34 +1,51 @@
-// VIDIKSHA payments: Razorpay orders, payment verification and the enrolment record.
+// VIDIKSHA payments: Razorpay orders, payment verification, the enrolment record, the buyer's account,
+// the invoice and the welcome email.
 //
 // Routes (all under /functions/v1/payments):
 //   POST /create-order   form details + course_slug  -> Razorpay order (server-side price) + pending enrolment row
-//   POST /verify         order id, payment id, signature from Checkout -> marks paid, writes the Google Sheet row
+//   POST /verify         order id, payment id, signature from Checkout -> marks paid, then account + invoice + email + sheet
 //   POST /webhook        Razorpay webhook (payment.captured / payment.failed) -> same, for browsers that closed early
-//   GET  /status         health check
+//   GET  /status         health check: which secrets are present
 //
 // Deploy:  supabase functions deploy payments --no-verify-jwt
-// Secrets: supabase secrets set RAZORPAY_KEY_ID=... RAZORPAY_KEY_SECRET=... RAZORPAY_WEBHOOK_SECRET=... SHEET_WEBHOOK_URL=...
-//          (SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided automatically.)
-// The Google Sheet row is written only after a verified successful payment, never from the browser.
+// Secrets (supabase secrets set ...):
+//   RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET, SHEET_WEBHOOK_URL
+//   RESEND_API_KEY            Resend API key; without it the welcome email is skipped and logged
+//   MAIL_FROM                 default "VIDIKSHA <noreply@vidiksha.in>"      MAIL_REPLY_TO  default team@vidiksha.in
+//   PORTAL_URL                leave unset until the learning portal is live; then https://portal.vidiksha.in
+//   SITE_URL                  default https://vidiksha.in
+//   ACCESS_NOTE               the "what happens next" line about recordings (default below)
+//   INVOICE_SELLER_NAME       default "Vidiksha Learning LLP"
+//   INVOICE_SELLER_ADDRESS    registered address printed on the invoice
+//   INVOICE_SELLER_STATE      state of the registered address (decides CGST+SGST vs IGST)
+//   INVOICE_GSTIN             leave empty until registered; then the PDF becomes a tax invoice with the GST break-up
+//   (SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided automatically.)
+//
+// Everything after "marks paid" is idempotent and retried on the next /verify or webhook call for the same order,
+// so a failed email or sheet post never loses a payment and never repeats a step that already succeeded.
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const RZP_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID") ?? "";
-const RZP_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET") ?? "";
-const RZP_WEBHOOK_SECRET = Deno.env.get("RAZORPAY_WEBHOOK_SECRET") ?? "";
-const SHEET_URL = Deno.env.get("SHEET_WEBHOOK_URL") ?? "";
-const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ?? "https://vidiksha.in,https://www.vidiksha.in,http://localhost:4321").split(",").map((s) => s.trim());
+import { buildInvoicePdf, toBase64 } from "./invoice.ts";
+import { sendMail, type WelcomeMail } from "./email.ts";
+
+const env = (k: string, d = "") => Deno.env.get(k) ?? d;
+const SUPABASE_URL = env("SUPABASE_URL");
+const SERVICE_KEY = env("SUPABASE_SERVICE_ROLE_KEY");
+const RZP_KEY_ID = env("RAZORPAY_KEY_ID"), RZP_KEY_SECRET = env("RAZORPAY_KEY_SECRET"), RZP_WEBHOOK_SECRET = env("RAZORPAY_WEBHOOK_SECRET");
+const SHEET_URL = env("SHEET_WEBHOOK_URL");
+const RESEND_KEY = env("RESEND_API_KEY");
+const MAIL_FROM = env("MAIL_FROM", "VIDIKSHA <noreply@vidiksha.in>"), MAIL_REPLY_TO = env("MAIL_REPLY_TO", "team@vidiksha.in");
+const PORTAL_URL = env("PORTAL_URL"), SITE_URL = env("SITE_URL", "https://vidiksha.in");
+const ACCESS_NOTE = env("ACCESS_NOTE", PORTAL_URL
+  ? "Your recorded sessions are open on the learning portal for 2 months from today. Watch them in order; each ends with a practice exercise."
+  : "Your recorded sessions will be opened to you on the learning portal, and we will email you the moment they are ready. Your 2 months of access start from that day, not today.");
+const SELLER = { name: env("INVOICE_SELLER_NAME", "Vidiksha Learning LLP"), address: env("INVOICE_SELLER_ADDRESS", "India"), state: env("INVOICE_SELLER_STATE"), gstin: env("INVOICE_GSTIN"), email: MAIL_REPLY_TO, website: SITE_URL.replace(/^https?:\/\//, "") };
+const ALLOWED_ORIGINS = env("ALLOWED_ORIGINS", "https://vidiksha.in,https://www.vidiksha.in,http://localhost:4321").split(",").map((s) => s.trim());
 
 type Json = Record<string, unknown>;
 
 function cors(origin: string | null) {
   const allow = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    "Access-Control-Allow-Origin": allow,
-    "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
-    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-    "Vary": "Origin",
-  };
+  return { "Access-Control-Allow-Origin": allow, "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info", "Access-Control-Allow-Methods": "POST, GET, OPTIONS", "Vary": "Origin" };
 }
 function json(body: Json, status: number, origin: string | null) {
   return new Response(JSON.stringify(body), { status, headers: { ...cors(origin), "Content-Type": "application/json" } });
@@ -38,11 +55,45 @@ function json(body: Json, status: number, origin: string | null) {
 async function db(path: string, init: RequestInit = {}) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...init,
-    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation", ...(init.headers || {}) },
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation", ...(init.headers as Record<string, string> || {}) },
   });
   const text = await r.text();
   if (!r.ok) throw new Error(`db ${path}: ${r.status} ${text.slice(0, 200)}`);
   return text ? JSON.parse(text) : null;
+}
+const rpc = (fn: string, args: Json) => db(`rpc/${fn}`, { method: "POST", body: JSON.stringify(args) });
+const patch = (id: string, body: Json) => db(`course_enrolments?id=eq.${id}`, { method: "PATCH", body: JSON.stringify(body) });
+
+/* ---- Supabase Auth admin ---- */
+async function authAdmin(path: string, init: RequestInit = {}) {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/${path}`, {
+    ...init,
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json", ...(init.headers as Record<string, string> || {}) },
+  });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(`auth ${path}: ${r.status} ${JSON.stringify(body).slice(0, 200)}`);
+  return body;
+}
+function makePassword(len = 14) {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(len));
+  let s = "";
+  for (const b of bytes) s += alphabet[b % alphabet.length];
+  return s.slice(0, 5) + "-" + s.slice(5, 10) + "-" + s.slice(10);
+}
+/** Finds or creates the buyer's VIDIKSHA account. Returns the password only when the account is new. */
+async function ensureAccount(e: Record<string, string>) {
+  const existing = await rpc("find_user_id_by_email", { addr: e.email });
+  if (existing) return { status: "existing" as const, userId: existing as string };
+  const password = makePassword();
+  const user = await authAdmin("users", {
+    method: "POST",
+    body: JSON.stringify({
+      email: e.email, password, email_confirm: true,
+      user_metadata: { full_name: e.full_name, whatsapp: e.whatsapp, profession: e.profession, organisation: e.organisation, role: e.profession, source: "course-purchase", course: e.course_slug },
+    }),
+  });
+  return { status: "created" as const, userId: user.id as string, password };
 }
 
 /* ---- crypto ---- */
@@ -62,35 +113,108 @@ function safeEqual(a: string, b: string) {
 const clean = (v: unknown, max: number) => String(v ?? "").replace(/[\r\n\t]+/g, " ").trim().slice(0, max);
 const cleanMulti = (v: unknown, max: number) => String(v ?? "").replace(/\r/g, "").trim().slice(0, max);
 
+async function razorpayPayment(paymentId: string) {
+  try {
+    const r = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}`, { headers: { Authorization: "Basic " + btoa(`${RZP_KEY_ID}:${RZP_KEY_SECRET}`) } });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
+}
+function methodLabel(p: Record<string, unknown> | null) {
+  if (!p) return "Online (Razorpay)";
+  const m = String(p.method || "");
+  if (m === "card") { const c = p.card as Record<string, string> | undefined; return `Card${c?.network ? " (" + c.network + (c.last4 ? " ending " + c.last4 : "") + ")" : ""}`; }
+  if (m === "upi") return "UPI";
+  if (m === "netbanking") return `Net banking${p.bank ? " (" + p.bank + ")" : ""}`;
+  if (m === "wallet") return `Wallet${p.wallet ? " (" + p.wallet + ")" : ""}`;
+  if (m === "emi") return "EMI";
+  return m ? m[0].toUpperCase() + m.slice(1) : "Online (Razorpay)";
+}
+
 async function sendToSheet(row: Json) {
   if (!SHEET_URL) return false;
   try {
     const r = await fetch(SHEET_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(row), redirect: "follow" });
     const text = await r.text();
     return r.ok && /"ok"\s*:\s*true/.test(text);
-  } catch (e) {
-    console.error("sheet failed", String(e));
-    return false;
-  }
+  } catch (e) { console.error("sheet failed", String(e)); return false; }
 }
 
-/** Mark an enrolment paid (idempotent) and write the sheet row once. */
+/** Mark an enrolment paid, then account -> invoice -> welcome email -> sheet. Every step idempotent. */
 async function markPaid(orderId: string, paymentId: string) {
   const rows = await db(`course_enrolments?razorpay_order_id=eq.${encodeURIComponent(orderId)}&select=*`);
-  const e = rows?.[0];
+  let e = rows?.[0];
   if (!e) throw new Error(`no enrolment for order ${orderId}`);
+
   if (e.status !== "paid") {
-    await db(`course_enrolments?id=eq.${e.id}`, { method: "PATCH", body: JSON.stringify({ status: "paid", razorpay_payment_id: paymentId, paid_at: new Date().toISOString() }) });
+    const p = await razorpayPayment(paymentId);
+    const upd = { status: "paid", razorpay_payment_id: paymentId, paid_at: new Date().toISOString(), payment_method: methodLabel(p) };
+    await patch(e.id, upd);
+    e = { ...e, ...upd };
   }
+
+  // 1. The buyer's VIDIKSHA account (also used by the learning portal).
+  let password: string | undefined;
+  if (!e.user_id) {
+    try {
+      const acc = await ensureAccount(e);
+      password = acc.password;
+      await patch(e.id, { user_id: acc.userId, account_status: acc.status });
+      e = { ...e, user_id: acc.userId, account_status: acc.status };
+    } catch (err) { console.error("account", String(err)); }
+  }
+
+  // 2. Invoice number (consecutive per financial year).
+  if (!e.invoice_no) {
+    try {
+      const no = await rpc("assign_invoice_number", { enrolment: e.id });
+      e = { ...e, invoice_no: no, invoice_at: new Date().toISOString() };
+    } catch (err) { console.error("invoice number", String(err)); }
+  }
+
+  // 3. Welcome email with credentials and the invoice PDF. Skipped (and retried later) if the account or
+  //    invoice step failed, since the email must not go out without them.
+  if (!e.welcome_sent_at && e.user_id && e.invoice_no) {
+    if (!RESEND_KEY) console.error("RESEND_API_KEY not set; welcome email not sent for", e.id);
+    else {
+      try {
+        if (e.account_status === "created" && !password) {
+          // Account was created on an earlier attempt whose email failed: issue a fresh password so the email is complete.
+          password = makePassword();
+          await authAdmin(`users/${e.user_id}`, { method: "PUT", body: JSON.stringify({ password }) });
+        }
+        const pdf = buildInvoicePdf({
+          invoiceNo: e.invoice_no, invoiceDate: new Date(e.invoice_at || e.paid_at), seller: SELLER,
+          buyer: { name: e.full_name, email: e.email, phone: e.whatsapp || "", organisation: e.organisation || "", address: e.address_line || "", city: e.city || "", state: e.state || "", pincode: e.pincode || "" },
+          item: { title: e.course_title, description: "Online course: recorded sessions, practice exercises, email support, community membership and the IP Prosecution Kit.", sac: "999293" },
+          amountInr: Number(e.amount_inr),
+          payment: { id: paymentId, orderId, method: e.payment_method || "Online (Razorpay)", paidAt: new Date(e.paid_at) },
+        });
+        const mail: WelcomeMail = {
+          to: e.email, name: e.full_name, course: e.course_title, amountInr: Number(e.amount_inr), invoiceNo: e.invoice_no, paymentId,
+          portalUrl: PORTAL_URL, researchUrl: `${SITE_URL}/research/`,
+          account: { status: e.account_status === "created" ? "created" : "existing", email: e.email, password, resetUrl: `${SITE_URL}/research/` },
+          kit: true,
+          accessNote: ACCESS_NOTE,
+          pdf: { filename: `VIDIKSHA-invoice-${e.invoice_no.replace(/\//g, "-")}.pdf`, base64: toBase64(pdf) },
+        };
+        await sendMail(RESEND_KEY, MAIL_FROM, MAIL_REPLY_TO, mail);
+        await patch(e.id, { welcome_sent_at: new Date().toISOString() });
+        e = { ...e, welcome_sent_at: new Date().toISOString() };
+      } catch (err) { console.error("welcome email", String(err)); }
+    }
+  }
+
+  // 4. Google Sheet row.
   if (!e.sheet_sent_at) {
     const ok = await sendToSheet({
       type: "enrolment", received_at: new Date().toISOString(),
-      course: e.course_title, course_slug: e.course_slug, amount_inr: e.amount_inr,
-      payment_id: paymentId, order_id: orderId,
+      course: e.course_title, course_slug: e.course_slug, amount_inr: e.amount_inr, invoice_no: e.invoice_no,
+      payment_id: paymentId, order_id: orderId, payment_method: e.payment_method,
       full_name: e.full_name, email: e.email, whatsapp: e.whatsapp, profession: e.profession, organisation: e.organisation,
       address_line: e.address_line, city: e.city, state: e.state, pincode: e.pincode, status: "paid",
     });
-    if (ok) await db(`course_enrolments?id=eq.${e.id}`, { method: "PATCH", body: JSON.stringify({ sheet_sent_at: new Date().toISOString() }) });
+    if (ok) await patch(e.id, { sheet_sent_at: new Date().toISOString() });
   }
   return e;
 }
@@ -134,7 +258,7 @@ async function verify(req: Request, origin: string | null) {
   const expected = await hmacHex(RZP_KEY_SECRET, `${orderId}|${paymentId}`);
   if (!safeEqual(expected, sig)) return json({ error: "Payment could not be verified." }, 400, origin);
   const e = await markPaid(orderId, paymentId);
-  return json({ ok: true, course: e.course_title, email: e.email }, 200, origin);
+  return json({ ok: true, course: e.course_title, email: e.email, account: e.account_status || null, welcomed: !!e.welcome_sent_at, invoice: e.invoice_no || null }, 200, origin);
 }
 
 async function webhook(req: Request) {
@@ -162,7 +286,7 @@ Deno.serve(async (req) => {
     if (path.endsWith("/create-order") && req.method === "POST") return await createOrder(req, origin);
     if (path.endsWith("/verify") && req.method === "POST") return await verify(req, origin);
     if (path.endsWith("/webhook") && req.method === "POST") return await webhook(req);
-    if (path.endsWith("/status")) return json({ ok: true, razorpay: !!(RZP_KEY_ID && RZP_KEY_SECRET), webhook: !!RZP_WEBHOOK_SECRET, sheet: !!SHEET_URL }, 200, origin);
+    if (path.endsWith("/status")) return json({ ok: true, razorpay: !!(RZP_KEY_ID && RZP_KEY_SECRET), webhook: !!RZP_WEBHOOK_SECRET, sheet: !!SHEET_URL, email: !!RESEND_KEY, gstin: !!SELLER.gstin, portal: PORTAL_URL || null }, 200, origin);
     return json({ error: "Not found" }, 404, origin);
   } catch (e) {
     console.error(String(e));
