@@ -93,6 +93,36 @@ Deno.serve(async (req) => {
       return json({ ok: true, slug: cslug, url: `${SITE_URL}/courses/${cslug}/`, commit: resp.commit?.sha }, 200, origin);
     }
 
+    // Live training session: write content/training/<slug>.json from the database, or remove it (hide from the site).
+    if (b.type === "session" || b.type === "unpublish_session") {
+      const sslug = String(b.slug ?? "").replace(/[^a-z0-9-]/g, "");
+      if (!sslug) return json({ error: "Session slug is required." }, 400, origin);
+      const spath = `content/training/${sslug}.json`;
+      const cur = await gh(`${spath}?ref=${GH_BRANCH}`);
+      const sha = cur.ok ? (await cur.json()).sha : undefined;
+      const h = { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` };
+      if (b.type === "unpublish_session") {
+        if (sha) {
+          const del = await gh(spath, { method: "DELETE", body: JSON.stringify({ message: `Hide training session from the website: ${sslug}\n\nUnpublished from the control panel by ${staff.email}`, sha, branch: GH_BRANCH, committer: { name: "VIDIKSHA Control Panel", email: "team@vidiksha.in" } }) });
+          if (!del.ok) { const r = await del.json(); console.error("github", r); return json({ error: `GitHub refused the removal: ${r.message ?? del.status}` }, 502, origin); }
+        }
+        await fetch(`${SUPABASE_URL}/rest/v1/training_sessions?slug=eq.${sslug}`, { method: "PATCH", headers: { ...h, "Content-Type": "application/json" }, body: JSON.stringify({ published_on_site: false }) });
+        return json({ ok: true, removed: !!sha, url: `${SITE_URL}/live-training/` }, 200, origin);
+      }
+      const sr = await fetch(`${SUPABASE_URL}/rest/v1/training_sessions?slug=eq.${sslug}&select=*`, { headers: h });
+      const s = sr.ok ? (await sr.json())[0] : null;
+      if (!s) return json({ error: "No such session in the database." }, 404, origin);
+      const ist = new Date(s.starts_at).toLocaleString("sv-SE", { timeZone: "Asia/Kolkata" }).replace(" ", "T") + "+05:30";
+      const file: Record<string, unknown> = { slug: sslug, title: s.title, summary: s.summary ?? "", format: s.format ?? "", certificate: s.certificate ?? "", area: s.area ?? "", datetime: ist, duration: Number(s.duration_min) || 180, price: Number(s.price_inr) || 0, platform: s.platform ?? "Microsoft Teams" };
+      if (s.replay_url) file.replayUrl = s.replay_url;
+      if (s.external_register_url) file.externalRegisterUrl = s.external_register_url;
+      const put = await gh(spath, { method: "PUT", body: JSON.stringify({ message: `${sha ? "Update" : "Add"} training session on the website: ${s.title}\n\nPublished from the control panel by ${staff.email}`, content: b64(JSON.stringify(file, null, 2) + "\n"), branch: GH_BRANCH, sha, committer: { name: "VIDIKSHA Control Panel", email: "team@vidiksha.in" } }) });
+      const resp = await put.json();
+      if (!put.ok) { console.error("github", resp); return json({ error: `GitHub refused the commit: ${resp.message ?? put.status}` }, 502, origin); }
+      await fetch(`${SUPABASE_URL}/rest/v1/training_sessions?slug=eq.${sslug}`, { method: "PATCH", headers: { ...h, "Content-Type": "application/json" }, body: JSON.stringify({ published_on_site: true, site_published_at: new Date().toISOString() }) });
+      return json({ ok: true, slug: sslug, url: `${SITE_URL}/live-training/`, commit: resp.commit?.sha }, 200, origin);
+    }
+
     // Curriculum only: rewrite the "modules" of content/courses/<slug>.json so the public course page matches the portal.
     if (b.type === "curriculum") {
       const cslug = String(b.slug ?? "").replace(/[^a-z0-9-]/g, "");

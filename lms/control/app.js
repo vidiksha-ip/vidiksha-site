@@ -240,12 +240,65 @@
     ['q', 'filter', 'course'].forEach(function (i) { $('#' + i).addEventListener('input', draw); $('#' + i).addEventListener('change', draw); });
     $('#csv').addEventListener('click', function () { L.download('vidiksha-enrolments.csv', L.csv(rows, ['created_at', 'paid_at', 'status', 'course_title', 'amount_inr', 'invoice_no', 'full_name', 'email', 'whatsapp', 'profession', 'organisation', 'address_line', 'city', 'state', 'pincode', 'razorpay_order_id', 'razorpay_payment_id', 'payment_method', 'account_status'].map(function (k) { return { label: k, key: k }; }))); });
   }
+  function sessionDialog(s) {
+    var isNew = !s.slug;
+    var d = dialog(isNew ? 'Add training session' : 'Edit training session',
+      L.field('Title', '<input type="text" name="title" required value="' + esc(s.title || '') + '" data-title>') +
+      L.field('URL slug' + (isNew ? ' (auto from the date and title)' : ' (fixed; registrations are keyed to it)'), '<input type="text" name="slug" value="' + esc(s.slug || '') + '"' + (isNew ? ' placeholder="auto"' : ' readonly') + '>') +
+      L.field('Summary (shown on the card and the registration page)', '<textarea name="summary">' + esc(s.summary || '') + '</textarea>') +
+      '<div class="form-row">' + L.field('Date and time (IST)', '<input type="datetime-local" name="starts_at" required value="' + dtLocal(s.starts_at) + '">') + L.field('Length (minutes)', '<input type="number" name="duration_min" min="30" value="' + esc(s.duration_min || 180) + '">') + '</div>' +
+      '<div class="form-row">' + L.field('Price (INR, 0 = free)', '<input type="number" name="price_inr" min="0" value="' + esc(s.price_inr == null ? 0 : s.price_inr) + '">') + L.field('Area', '<select name="area">' + AREAS.map(function (a) { return '<option' + ((s.area || 'Trademark') === a ? ' selected' : '') + '>' + a + '</option>'; }).join('') + '</select>') + '</div>' +
+      '<div class="form-row">' + L.field('Format line (first tick on the card)', '<input type="text" name="format" value="' + esc(s.format || 'Real Registry examination report + live drafting') + '">') + L.field('Certificate line (second tick)', '<input type="text" name="certificate" value="' + esc(s.certificate || 'Certificate of Training on successful completion') + '">') + '</div>' +
+      '<div class="form-row">' + L.field('Platform', '<input type="text" name="platform" value="' + esc(s.platform || 'Microsoft Teams') + '">') + L.field('Replay link (after the session, optional)', '<input type="url" name="replay_url" value="' + esc(s.replay_url || '') + '">') + '</div>' +
+      L.field('External registration page (optional; otherwise the site’s own form)', '<input type="url" name="external_register_url" value="' + esc(s.external_register_url || '') + '">') +
+      '<label class="check"><input type="checkbox" name="published_on_site"' + (s.published_on_site || isNew ? ' checked' : '') + '> <strong>Show on vidiksha.in</strong> (live training page and, if it is the next one, the home page)</label>' +
+      '<p class="fine">Showing commits the session to the website repository; the site rebuilds in a minute or two. Unticking hides it from the site but keeps the session and its registrations here.</p>',
+      function (f) {
+        var slug = isNew ? L.slugify((f.starts_at ? f.starts_at.slice(0, 10) + ' ' : '') + (f.slug || f.title)) : s.slug;
+        if (!slug) throw new Error('Could not make a URL slug.');
+        if (!f.starts_at) throw new Error('Choose the date and time.');
+        var row = { slug: slug, title: f.title, summary: f.summary, starts_at: fromLocal(f.starts_at), duration_min: Number(f.duration_min) || 180, price_inr: Number(f.price_inr) || 0, area: f.area, format: f.format, certificate: f.certificate, platform: f.platform || 'Microsoft Teams', replay_url: f.replay_url || null, external_register_url: f.external_register_url || null, updated_at: new Date().toISOString() };
+        var wantSite = !!f.published_on_site, wasSite = !!s.published_on_site;
+        return sb.from('training_sessions').upsert(row, { onConflict: 'slug' }).then(must).then(function () {
+          if (wantSite) return sitePublish('session', slug).then(function () { L.toast('Saved and shown on vidiksha.in', 'ok'); });
+          if (wasSite && !wantSite) return sitePublish('unpublish_session', slug).then(function () { L.toast('Saved and hidden from vidiksha.in', 'ok'); });
+          L.toast('Saved', 'ok');
+        }).then(function () { training(); });
+      });
+    var t = $('[data-title]', d), sl = $('[name=slug]', d);
+    if (isNew) { t.addEventListener('input', function () { if (!sl.dataset.touched) sl.value = L.slugify(t.value); }); sl.addEventListener('input', function () { sl.dataset.touched = '1'; }); }
+  }
   function training() {
-    L.render(head('Training sessions', 'Live training registrations', 'Who registered for which session.', '<button class="btn btn-ghost" id="csv">Export CSV</button>') + '<div id="tbl">' + L.spinner() + '</div>');
-    sb.from('training_registrations').select('*').order('session_date', { ascending: false }).order('created_at', { ascending: false }).then(function (r) {
-      var rows = r.data || [], groups = {};
+    L.render(head('Training sessions', 'Live training sessions', 'Sessions on the website and everyone who registered for each.', '<button class="btn btn-ghost" id="csv">Export registrations CSV</button><button class="btn" id="add">Add session</button>') + '<p class="status" id="tr-st"></p><div id="sessions">' + L.spinner() + '</div><div id="tbl"></div>');
+    Promise.all([sb.from('training_session_overview').select('*').order('starts_at', { ascending: false }), sb.from('training_registrations').select('*').order('session_date', { ascending: false }).order('created_at', { ascending: false })]).then(function (r) {
+      var sessions = r[0].data || [], rows = r[1].data || [], groups = {};
       rows.forEach(function (x) { (groups[x.session_slug] = groups[x.session_slug] || { title: x.session_title, date: x.session_date, rows: [] }).rows.push(x); });
-      $('#tbl').innerHTML = Object.keys(groups).length ? Object.keys(groups).map(function (k) { var g = groups[k]; return '<div class="section"><div class="section-head"><h2>' + esc(g.title) + '</h2><span class="muted">' + esc(L.fmtDate(g.date)) + ' · ' + g.rows.length + ' registered</span></div>' + table([{ label: 'Registered', nowrap: true, get: function (x) { return L.fmtDateTime(x.created_at); } }, { label: 'Name', html: function (x) { return (x.user_id ? '<a href="#/student/' + x.user_id + '"><strong>' + esc(x.full_name) + '</strong></a>' : '<strong>' + esc(x.full_name) + '</strong>') + '<span class="sub">' + esc(x.email) + '</span>'; } }, { label: 'WhatsApp', nowrap: true, key: 'whatsapp' }, { label: 'Profession', key: 'profession' }, { label: 'Qualification', key: 'qualification' }], g.rows) + '</div>'; }).join('') : L.empty('No registrations yet.');
+      var now = new Date();
+      $('#sessions').innerHTML = sessions.length ? table([
+        { label: 'When', nowrap: true, html: function (s) { var d = new Date(s.starts_at); return esc(L.fmtDate(d)) + '<span class="sub">' + esc(d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })) + ' IST · ' + esc(L.minutes(s.duration_min)) + '</span>' + (d < now ? '<span class="pill">past</span>' : '<span class="pill ok">upcoming</span>'); } },
+        { label: 'Session', html: function (s) { return '<strong>' + esc(s.title) + '</strong><span class="sub">' + esc(s.area || '') + ' · ' + (s.price_inr ? L.fmtInr(s.price_inr) : 'Free') + ' · ' + esc(s.platform) + '</span>'; } },
+        { label: 'On the website', html: function (s) { return s.published_on_site ? '<span class="pill ok">shown</span>' : '<span class="pill">hidden</span>'; } },
+        { label: 'Registered', html: function (s) { return '<a href="#reg-' + esc(s.slug) + '">' + s.registrations + '</a>'; } },
+        { label: '', html: function (s) { return '<button class="btn btn-ghost btn-sm" data-edit="' + esc(s.slug) + '">Edit</button> ' + (s.published_on_site ? '<button class="btn btn-ghost btn-sm" data-hide="' + esc(s.slug) + '">Hide</button>' : '<button class="btn btn-sm" data-show="' + esc(s.slug) + '">Show</button>') + ' <button class="btn btn-danger btn-sm" data-del="' + esc(s.slug) + '">Remove</button>'; } }
+      ], sessions) : L.empty('No sessions yet. Add the first one.');
+      var all = sessions.map(function (s) { return s.slug; }); Object.keys(groups).forEach(function (k) { if (all.indexOf(k) < 0) all.push(k); });
+      $('#tbl').innerHTML = all.map(function (k) {
+        var s = sessions.filter(function (x) { return x.slug === k; })[0], g = groups[k] || { title: s ? s.title : k, date: s ? s.starts_at : null, rows: [] };
+        return '<div class="section" id="reg-' + esc(k) + '"><div class="section-head"><h2>' + esc(s ? s.title : g.title) + '</h2><span class="muted">' + esc(L.fmtDate(s ? s.starts_at : g.date)) + ' · ' + g.rows.length + ' registered' + (s ? '' : ' · session no longer listed') + '</span></div>' +
+          (g.rows.length ? table([{ label: '#', get: function (x, i) { return ''; }, html: function (x) { return String(g.rows.indexOf(x) + 1); } }, { label: 'Registered', nowrap: true, get: function (x) { return L.fmtDateTime(x.created_at); } }, { label: 'Name', html: function (x) { return (x.user_id ? '<a href="#/student/' + x.user_id + '"><strong>' + esc(x.full_name) + '</strong></a>' : '<strong>' + esc(x.full_name) + '</strong>') + '<span class="sub">' + esc(x.email) + '</span>'; } }, { label: 'WhatsApp', nowrap: true, key: 'whatsapp' }, { label: 'Profession', key: 'profession' }, { label: 'Qualification', key: 'qualification' }], g.rows) : L.empty('Nobody has registered yet.')) + '</div>';
+      }).join('');
+      var st = $('#tr-st');
+      var pub = function (type, slug, label) { st.textContent = label + '…'; st.className = 'status'; sitePublish(type, slug).then(function () { st.textContent = ''; L.toast(type === 'session' ? 'Shown on vidiksha.in' : 'Hidden from vidiksha.in', 'ok'); training(); }, function (e) { st.textContent = L.err(e); st.className = 'status is-error'; }); };
+      $('#add').addEventListener('click', function () { sessionDialog({}); });
+      $$('[data-edit]').forEach(function (b) { b.addEventListener('click', function () { sessionDialog(sessions.filter(function (x) { return x.slug === b.getAttribute('data-edit'); })[0]); }); });
+      $$('[data-hide]').forEach(function (b) { b.addEventListener('click', function () { pub('unpublish_session', b.getAttribute('data-hide'), 'Hiding from the website'); }); });
+      $$('[data-show]').forEach(function (b) { b.addEventListener('click', function () { pub('session', b.getAttribute('data-show'), 'Publishing to the website'); }); });
+      $$('[data-del]').forEach(function (b) { b.addEventListener('click', function () {
+        var slug = b.getAttribute('data-del'), s = sessions.filter(function (x) { return x.slug === slug; })[0];
+        if (!confirmDelete('this session' + (s && s.registrations ? ' (its ' + s.registrations + ' registrations stay in the list below)' : ''))) return;
+        var first = s && s.published_on_site ? sitePublish('unpublish_session', slug) : Promise.resolve();
+        first.then(function () { return sb.from('training_sessions').delete().eq('slug', slug).then(must); }).then(function () { L.toast('Session removed', 'ok'); training(); }, function (e) { L.toast(L.err(e), 'error'); });
+      }); });
       $('#csv').addEventListener('click', function () { L.download('vidiksha-training-registrations.csv', L.csv(rows, ['session_title', 'session_date', 'created_at', 'full_name', 'email', 'whatsapp', 'profession', 'qualification'].map(function (k) { return { label: k, key: k }; }))); });
     });
   }
