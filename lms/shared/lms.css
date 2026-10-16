@@ -86,11 +86,14 @@ main { padding: 2.25rem 2.5rem 4rem; max-width: 1180px; width: 100%; }
 .num { font-family: var(--font-display); color: var(--muted); width: 2rem; flex: none; }
 .tick { width: 20px; height: 20px; border: 1px solid var(--line); border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 0.7rem; }
 .tick.is-done { background: var(--accent); border-color: var(--accent); color: #fff; }
-.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); }
-table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
-th, td { text-align: left; padding: 0.65rem 0.85rem; border-bottom: 1px solid var(--line); vertical-align: top; white-space: nowrap; }
-td.wrap, th.wrap { white-space: normal; }
-th { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 500; background: #f4f3f0; position: sticky; top: 0; }
+.table-wrap { overflow: visible; background: var(--surface); border: 1px solid var(--line); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; table-layout: auto; }
+th, td { text-align: left; padding: 0.65rem 0.85rem; border-bottom: 1px solid var(--line); vertical-align: top; white-space: normal; overflow-wrap: anywhere; }
+td.nowrap, th.nowrap { white-space: nowrap; }
+td .pill { white-space: nowrap; }
+th { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 500; background: #f4f3f0; }
+td .sub { display: block; color: var(--muted); font-size: 0.8rem; margin-top: 0.15rem; }
+td .mono { font-family: Menlo, Consolas, monospace; font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
 tr:last-child td { border-bottom: 0; }
 tbody tr:hover td { background: #faf9f7; }
 .pill { display: inline-block; font-size: 0.72rem; padding: 0.1rem 0.5rem; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); white-space: nowrap; }
@@ -209,12 +212,8 @@ dialog h2 { margin-bottom: 1rem; }
 .covers li { padding: 0.15rem 0; }
 @media (max-width: 640px) { .session { grid-template-columns: 2.4rem 1fr; } .session-action { grid-column: 2; } }
 
-/* compact, non-scrolling tables */
+/* toolbar controls keep their natural width */
 .toolbar select { width: auto; min-width: 180px; }
-.table-wrap.fit { overflow: visible; }
-.table-wrap.fit table { table-layout: auto; }
-.table-wrap.fit th, .table-wrap.fit td { white-space: normal; }
-.table-wrap.fit th { position: static; }
 
 /* control panel: curriculum editor */
 .cur-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
