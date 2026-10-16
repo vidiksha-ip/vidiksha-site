@@ -7,7 +7,8 @@
   var L = window.LMS, sb = L.sb, esc = L.esc, $ = L.$, $$ = L.$$;
   var CUR = {}; // slug -> { title, duration, unitNote }, from the courses table
   var app = document.getElementById('app');
-  var session = null, profile = null, courses = [], unread = 0;
+  var session = null, profile = null, courses = [], unread = 0, batches = {};
+  function batchLine(slug) { var b = batches[slug]; if (!b) return ''; return esc(b.name) + (b.starts_on ? ', from ' + esc(L.fmtDate(b.starts_on)) : '') + (b.ends_on ? ' to ' + esc(L.fmtDate(b.ends_on)) : ''); }
 
   /* ------------------------------------------------------------ auth screens */
   function authShell(inner) {
@@ -83,9 +84,11 @@
       sb.from('profiles').select('*').eq('id', session.user.id).maybeSingle(),
       sb.from('my_courses').select('*'),
       sb.from('messages').select('id', { count: 'exact', head: true }).eq('user_id', session.user.id).eq('from_staff', true).is('read_at', null),
-      L.loadCourses()
+      L.loadCourses(),
+      sb.from('my_batches').select('*')
     ]).then(function (r) {
       (r[3] || []).forEach(function (c) { CUR[c.slug] = { title: c.title, duration: c.duration, unitNote: c.unit_note }; });
+      batches = {}; (r[4].data || []).forEach(function (b) { batches[b.course_slug] = b; });
       profile = r[0].data || { id: session.user.id, email: session.user.email, full_name: session.user.user_metadata && session.user.user_metadata.full_name };
       courses = (r[1].data || []).sort(function (a, b) { return String(a.course_title).localeCompare(b.course_title); });
       unread = r[2].count || 0;
@@ -138,6 +141,7 @@
       el.innerHTML = '<div class="grid grid-2">' + courses.map(function (c) {
         var rows = sessionsFor(c.course_slug, (r[0].data || []).filter(function (l) { return l.course_slug === c.course_slug; }), prog), s = courseStats(rows);
         return '<div class="card course-card"><p class="eyebrow">' + (c.suspended ? 'Access paused' : active(c) ? 'Access ' + esc(L.until(c.until)) : 'Access ended ' + esc(L.fmtDate(c.until))) + '</p><h3><a href="#/course/' + esc(c.course_slug) + '">' + esc(c.course_title) + '</a></h3>' +
+          (batches[c.course_slug] ? '<div class="small" style="margin-bottom:0.3rem">' + batchLine(c.course_slug) + '</div>' : '') +
           '<div class="muted small">' + s.done + ' of ' + s.total + ' sessions completed' + (s.released < s.total ? ' · ' + s.released + ' recording' + (s.released === 1 ? '' : 's') + ' released' : '') + '</div><div class="progress"><i style="width:' + s.pct + '%"></i></div>' +
           '<div class="actions" style="margin-top:1rem">' + (s.next && active(c) ? '<a class="btn btn-sm" href="#/lecture/' + s.next.lecture.id + '">▶ ' + (s.next.state === 'progress' ? 'Continue' : 'Start') + ' session ' + s.next.n + '</a>' : '') + '<a class="btn btn-ghost btn-sm" href="#/course/' + esc(c.course_slug) + '">Course page</a></div></div>';
       }).join('') + '</div>';
@@ -155,7 +159,7 @@
     var tab = TABS.some(function (t) { return t[0] === q.tab; }) ? q.tab : 'sessions';
     var info = CUR[slug] || {};
     if (!c) return L.render('<div class="page-head"><div><h1>' + esc(info.title || L.courseName(slug)) + '</h1><p>This course is not on your account.</p></div></div><a class="btn" href="' + L.cfg.siteUrl + '/courses/' + esc(slug) + '/">See the course on vidiksha.in</a>');
-    L.render('<div class="page-head"><div><p class="eyebrow">Course</p><h1>' + esc(c.course_title) + '</h1><p>' + esc(accessNote(c)) + (info.duration ? ' ' + esc(info.duration) + (info.unitNote ? ', ' + esc(info.unitNote) : '') + '.' : '') + '</p></div><div id="course-cta"></div></div>' +
+    L.render('<div class="page-head"><div><p class="eyebrow">Course</p><h1>' + esc(c.course_title) + '</h1><p>' + (batches[slug] ? batchLine(slug) + '. ' : '') + esc(accessNote(c)) + (info.duration ? ' ' + esc(info.duration) + (info.unitNote ? ', ' + esc(info.unitNote) : '') + '.' : '') + '</p></div><div id="course-cta"></div></div>' +
       '<div class="course-progress" id="course-progress"></div>' +
       '<div class="tabs">' + TABS.map(function (t) { return '<a href="#/course/' + esc(slug) + '?tab=' + t[0] + '" class="' + (tab === t[0] ? 'is-active' : '') + '">' + t[1] + '</a>'; }).join('') + '</div><div id="tab">' + L.spinner() + '</div>');
     Promise.all([
@@ -198,7 +202,7 @@
     });
   }
   function noticesTab(slug) {
-    sb.from('announcements').select('*').or('audience.eq.all,audience.eq.' + slug).order('pinned', { ascending: false }).order('created_at', { ascending: false }).then(function (r) {
+    sb.from('announcements').select('*').or('audience.eq.all,audience.eq.' + slug + (batches[slug] ? ',audience.eq.batch:' + batches[slug].id : '')).order('pinned', { ascending: false }).order('created_at', { ascending: false }).then(function (r) {
       $('#tab').innerHTML = (r.data && r.data.length) ? r.data.map(noticeHtml).join('') : L.empty('No announcements yet.');
     });
   }
@@ -312,7 +316,8 @@
 
   /* ------------------------------------------------------------ notices, messages, profile */
   function noticeHtml(n) {
-    return '<div class="notice ' + (n.pinned ? 'is-pinned' : '') + '"><div class="meta">' + esc(L.fmtDate(n.created_at)) + (n.audience !== 'all' ? ' · ' + esc(L.courseName(n.audience)) : '') + (n.pinned ? ' · pinned' : '') + '</div><strong>' + esc(n.title) + '</strong>' + (n.body ? '<div class="prose small" style="margin-top:0.35rem">' + L.nl2p(n.body) + '</div>' : '') + '</div>';
+    var aud = n.audience === 'all' ? '' : n.audience.indexOf('batch:') === 0 ? (function () { var k = Object.keys(batches).filter(function (s) { return batches[s].id === n.audience.slice(6); })[0]; return k ? L.courseName(k) + ' · ' + batches[k].name : 'your batch'; })() : L.courseName(n.audience);
+    return '<div class="notice ' + (n.pinned ? 'is-pinned' : '') + '"><div class="meta">' + esc(L.fmtDate(n.created_at)) + (aud ? ' · ' + esc(aud) : '') + (n.pinned ? ' · pinned' : '') + '</div><strong>' + esc(n.title) + '</strong>' + (n.body ? '<div class="prose small" style="margin-top:0.35rem">' + L.nl2p(n.body) + '</div>' : '') + '</div>';
   }
   function noticesPage() {
     L.render('<div class="page-head"><div><p class="eyebrow">Announcements</p><h1>Announcements</h1></div></div><div id="nn">' + L.spinner() + '</div>');
