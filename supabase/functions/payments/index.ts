@@ -6,6 +6,7 @@
 //   POST /verify         order id, payment id, signature from Checkout -> marks paid, then account + invoice + email + sheet
 //   POST /webhook        Razorpay webhook (payment.captured / payment.failed) -> same, for browsers that closed early
 //   POST /retry          order id + payment id of a captured payment -> re-runs the steps above, reports what failed
+//   GET  /invoice?order= student's own session token -> their invoice PDF (used by the portal's Profile page)
 //   GET  /status         health check: which secrets are present
 //
 // Deploy:  supabase functions deploy payments --no-verify-jwt
@@ -186,13 +187,7 @@ async function markPaid(orderId: string, paymentId: string) {
           password = makePassword();
           await authAdmin(`users/${e.user_id}`, { method: "PUT", body: JSON.stringify({ password }) });
         }
-        const pdf = buildInvoicePdf({
-          invoiceNo: e.invoice_no, invoiceDate: new Date(e.invoice_at || e.paid_at), seller: SELLER,
-          buyer: { name: e.full_name, email: e.email, phone: e.whatsapp || "", organisation: e.organisation || "", address: e.address_line || "", city: e.city || "", state: e.state || "", pincode: e.pincode || "" },
-          item: { title: e.course_title, description: "Online course: recorded sessions, practice exercises, email support, community membership and the IP Prosecution Kit.", sac: "999293" },
-          amountInr: Number(e.amount_inr),
-          payment: { id: paymentId, orderId, method: e.payment_method || "Online (Razorpay)", paidAt: new Date(e.paid_at) },
-        });
+        const pdf = invoicePdf(e, paymentId, orderId);
         const mail: WelcomeMail = {
           to: e.email, name: e.full_name, course: e.course_title, amountInr: Number(e.amount_inr), invoiceNo: e.invoice_no, paymentId,
           portalUrl: PORTAL_URL, researchUrl: `${SITE_URL}/research/`,
@@ -221,6 +216,33 @@ async function markPaid(orderId: string, paymentId: string) {
     else fail("sheet", "webhook did not answer ok");
   }
   return { ...e, errors };
+}
+
+/** The tax invoice cum receipt PDF for a paid enrolment row. */
+function invoicePdf(e: Record<string, string>, paymentId: string, orderId: string) {
+  return buildInvoicePdf({
+    invoiceNo: e.invoice_no, invoiceDate: new Date(e.invoice_at || e.paid_at), seller: SELLER,
+    buyer: { name: e.full_name, email: e.email, phone: e.whatsapp || "", organisation: e.organisation || "", address: e.address_line || "", city: e.city || "", state: e.state || "", pincode: e.pincode || "" },
+    item: { title: e.course_title, description: "Online course: recorded sessions, practice exercises, email support, community membership and the IP Prosecution Kit.", sac: "999293" },
+    amountInr: Number(e.amount_inr),
+    payment: { id: paymentId, orderId, method: e.payment_method || "Online (Razorpay)", paidAt: new Date(e.paid_at) },
+  });
+}
+
+/** GET /invoice?order=<razorpay order id>, with the student's own session token: returns their invoice PDF. */
+async function invoiceDownload(req: Request, origin: string | null) {
+  const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
+  if (!token) return json({ error: "Sign in to download invoices." }, 401, origin);
+  const u = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${token}` } });
+  if (!u.ok) return json({ error: "Sign in to download invoices." }, 401, origin);
+  const user = await u.json();
+  const orderId = clean(new URL(req.url).searchParams.get("order"), 80);
+  const rows = await db(`course_enrolments?razorpay_order_id=eq.${encodeURIComponent(orderId)}&status=eq.paid&select=*`);
+  const e = rows?.[0];
+  if (!e || !(e.user_id === user.id || String(e.email).toLowerCase() === String(user.email).toLowerCase())) return json({ error: "No such invoice on your account." }, 404, origin);
+  if (!e.invoice_no) return json({ error: "This invoice has not been numbered yet. Write to team@vidiksha.in." }, 409, origin);
+  const pdf = invoicePdf(e, e.razorpay_payment_id, orderId);
+  return new Response(pdf, { status: 200, headers: { ...cors(origin), "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="VIDIKSHA-invoice-${e.invoice_no.replace(/\//g, "-")}.pdf"`, "Cache-Control": "private, no-store" } });
 }
 
 /* ---- routes ---- */
@@ -303,6 +325,7 @@ Deno.serve(async (req) => {
     if (path.endsWith("/verify") && req.method === "POST") return await verify(req, origin);
     if (path.endsWith("/webhook") && req.method === "POST") return await webhook(req);
     if (path.endsWith("/retry") && req.method === "POST") return await retry(req, origin);
+    if (path.endsWith("/invoice") && req.method === "GET") return await invoiceDownload(req, origin);
     if (path.endsWith("/status")) return json({ ok: true, razorpay: !!(RZP_KEY_ID && RZP_KEY_SECRET), webhook: !!RZP_WEBHOOK_SECRET, sheet: !!SHEET_URL, email: !!RESEND_KEY, gstin: !!SELLER.gstin, portal: PORTAL_URL || null }, 200, origin);
     return json({ error: "Not found" }, 404, origin);
   } catch (e) {

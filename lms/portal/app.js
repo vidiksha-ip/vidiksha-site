@@ -1,8 +1,11 @@
 /* VIDIKSHA learning portal (portal.vidiksha.in). Students sign in with the account created at purchase.
-   Everything comes straight from Supabase under row level security; there is no server of our own. */
+   Everything comes straight from Supabase under row level security; there is no server of our own.
+   The curriculum of each course (sessions and what they cover) comes from shared/courses.js, generated from the
+   site's course files; recordings uploaded in the control panel attach to curriculum sessions by position. */
 (function () {
   'use strict';
   var L = window.LMS, sb = L.sb, esc = L.esc, $ = L.$, $$ = L.$$;
+  var CUR = window.VIDIKSHA_COURSES || {};
   var app = document.getElementById('app');
   var session = null, profile = null, courses = [], unread = 0;
 
@@ -57,9 +60,7 @@
   }
 
   /* ------------------------------------------------------------ shell */
-  var NAV = [
-    ['', 'Dashboard'], ['courses', 'My courses'], ['notices', 'Announcements'], ['messages', 'Messages'], ['profile', 'Profile']
-  ];
+  var NAV = [['', 'Dashboard'], ['courses', 'My courses'], ['notices', 'Announcements'], ['messages', 'Messages'], ['profile', 'Profile']];
   function shell() {
     var name = (profile && profile.full_name) || session.user.email;
     app.innerHTML = '<div class="shell"><aside class="sidebar"><a class="brand" href="#/">VIDIKSHA<small>Learning portal</small></a><nav class="nav" id="nav"></nav>' +
@@ -69,7 +70,7 @@
     drawNav();
   }
   function drawNav() {
-    var cur = (location.hash.replace(/^#\/?/, '').split('/')[0] || '');
+    var cur = (location.hash.replace(/^#\/?/, '').split(/[/?]/)[0] || '');
     $('#nav').innerHTML = NAV.map(function (n) {
       var active = n[0] === '' ? cur === '' : cur === n[0] || (n[0] === 'courses' && (cur === 'course' || cur === 'lecture' || cur === 'assignment'));
       return '<a href="#/' + n[0] + '" class="' + (active ? 'is-active' : '') + '">' + n[1] + (n[0] === 'messages' && unread ? '<span class="badge">' + unread + '</span>' : '') + '</a>';
@@ -91,12 +92,31 @@
   function active(c) { return new Date(c.until) > new Date(); }
   function logEvent(event, meta) { sb.from('activity_log').insert({ user_id: session.user.id, event: event, meta: meta || null }).then(function () {}); }
 
-  /* ------------------------------------------------------------ pages */
+  /** Curriculum sessions of a course merged with the recordings published for it (matched by position). */
+  function sessionsFor(slug, lectures, progress) {
+    var cur = (CUR[slug] && CUR[slug].sessions) || [];
+    var byPos = {}; lectures.forEach(function (l) { if (!byPos[l.position]) byPos[l.position] = l; });
+    var rows = cur.map(function (c) { return { n: c.n, title: c.title, lessons: c.lessons, lecture: byPos[c.n] || null }; });
+    lectures.forEach(function (l) { if (l.position > cur.length || !cur.length) if (!rows.some(function (r) { return r.lecture && r.lecture.id === l.id; })) rows.push({ n: l.position, title: l.title, lessons: [], lecture: l, extra: true }); });
+    rows.sort(function (a, b) { return a.n - b.n; });
+    rows.forEach(function (r) { var p = r.lecture && progress[r.lecture.id]; r.state = !r.lecture ? 'soon' : p && p.completed ? 'done' : p && p.seconds > 30 ? 'progress' : 'ready'; });
+    return rows;
+  }
+  function courseStats(rows) {
+    var withRec = rows.filter(function (r) { return r.lecture; }), done = withRec.filter(function (r) { return r.state === 'done'; });
+    var next = rows.filter(function (r) { return r.state === 'progress'; })[0] || rows.filter(function (r) { return r.state === 'ready'; })[0];
+    return { total: rows.length, released: withRec.length, done: done.length, pct: withRec.length ? Math.round(done.length * 100 / withRec.length) : 0, next: next };
+  }
+  function statePill(state) {
+    return { soon: '<span class="pill">Recording coming soon</span>', done: '<span class="pill ok">Completed</span>', progress: '<span class="pill warn">In progress</span>', ready: '<span class="pill">Not started</span>' }[state];
+  }
+
+  /* ------------------------------------------------------------ dashboard & courses */
   function dashboard() {
     L.render('<div class="page-head"><div><p class="eyebrow">Dashboard</p><h1>Welcome back, ' + esc((profile.full_name || '').split(' ')[0] || 'there') + '.</h1></div></div>' +
-      '<div class="section"><div class="section-head"><h2>Your courses</h2><a href="#/courses">All courses</a></div><div id="dash-courses">' + L.spinner() + '</div></div>' +
+      '<div class="section" style="margin-top:0"><div class="section-head"><h2>Your courses</h2><a href="#/courses">All courses</a></div><div id="dash-courses">' + L.spinner() + '</div></div>' +
       '<div class="grid grid-2 section"><div><div class="section-head"><h2>Announcements</h2><a href="#/notices">All</a></div><div id="dash-notices">' + L.spinner() + '</div></div>' +
-      '<div><div class="section-head"><h2>Your sessions</h2></div><div id="dash-sessions">' + L.spinner() + '</div></div></div>');
+      '<div><div class="section-head"><h2>Your live sessions</h2></div><div id="dash-sessions">' + L.spinner() + '</div></div></div>');
     courseCards($('#dash-courses'));
     sb.from('announcements').select('*').order('pinned', { ascending: false }).order('created_at', { ascending: false }).limit(4).then(function (r) {
       $('#dash-notices').innerHTML = (r.data && r.data.length) ? r.data.map(noticeHtml).join('') : L.empty('No announcements yet.');
@@ -112,15 +132,15 @@
     if (!courses.length) { el.innerHTML = L.empty('No courses on this account yet. Courses bought with this email appear here the moment payment is confirmed.'); return; }
     var ids = courses.map(function (c) { return c.course_slug; });
     Promise.all([
-      sb.from('lectures').select('id, course_slug').in('course_slug', ids),
-      sb.from('lecture_progress').select('lecture_id, completed').eq('user_id', session.user.id)
+      sb.from('lectures').select('id, course_slug, position, title').in('course_slug', ids),
+      sb.from('lecture_progress').select('lecture_id, completed, seconds').eq('user_id', session.user.id)
     ]).then(function (r) {
-      var lecs = r[0].data || [], done = {}; (r[1].data || []).forEach(function (p) { if (p.completed) done[p.lecture_id] = true; });
+      var prog = {}; (r[1].data || []).forEach(function (p) { prog[p.lecture_id] = p; });
       el.innerHTML = '<div class="grid grid-2">' + courses.map(function (c) {
-        var mine = lecs.filter(function (l) { return l.course_slug === c.course_slug; });
-        var n = mine.filter(function (l) { return done[l.id]; }).length, pct = mine.length ? Math.round(n * 100 / mine.length) : 0;
-        return '<a class="card is-link" href="#/course/' + esc(c.course_slug) + '"><p class="eyebrow">' + (active(c) ? 'Access ' + esc(L.until(c.until)) : 'Access ended ' + esc(L.fmtDate(c.until))) + '</p><h3>' + esc(c.course_title) + '</h3>' +
-          '<div class="muted small">' + (mine.length ? n + ' of ' + mine.length + ' sessions completed' : 'Sessions are being added') + '</div><div class="progress"><i style="width:' + pct + '%"></i></div></a>';
+        var rows = sessionsFor(c.course_slug, (r[0].data || []).filter(function (l) { return l.course_slug === c.course_slug; }), prog), s = courseStats(rows);
+        return '<div class="card course-card"><p class="eyebrow">' + (active(c) ? 'Access ' + esc(L.until(c.until)) : 'Access ended ' + esc(L.fmtDate(c.until))) + '</p><h3><a href="#/course/' + esc(c.course_slug) + '">' + esc(c.course_title) + '</a></h3>' +
+          '<div class="muted small">' + s.done + ' of ' + s.total + ' sessions completed' + (s.released < s.total ? ' · ' + s.released + ' recording' + (s.released === 1 ? '' : 's') + ' released' : '') + '</div><div class="progress"><i style="width:' + s.pct + '%"></i></div>' +
+          '<div class="actions" style="margin-top:1rem">' + (s.next && active(c) ? '<a class="btn btn-sm" href="#/lecture/' + s.next.lecture.id + '">▶ ' + (s.next.state === 'progress' ? 'Continue' : 'Start') + ' session ' + s.next.n + '</a>' : '') + '<a class="btn btn-ghost btn-sm" href="#/course/' + esc(c.course_slug) + '">Course page</a></div></div>';
       }).join('') + '</div>';
     });
   }
@@ -128,37 +148,59 @@
     L.render('<div class="page-head"><div><p class="eyebrow">My courses</p><h1>Courses</h1></div><a class="btn btn-ghost" href="' + L.cfg.siteUrl + '/courses/" target="_blank" rel="noopener">Browse all courses ↗</a></div><div id="cc">' + L.spinner() + '</div>');
     courseCards($('#cc'));
   }
-  function coursePage(slug) {
+
+  /* ------------------------------------------------------------ course page with tabs */
+  var TABS = [['sessions', 'Sessions'], ['materials', 'Materials'], ['assignments', 'Assignments'], ['notices', 'Announcements']];
+  function coursePage(slug, q) {
     var c = courses.filter(function (x) { return x.course_slug === slug; })[0];
-    if (!c) return L.render('<div class="page-head"><div><h1>' + esc(L.courseName(slug)) + '</h1><p>This course is not on your account.</p></div></div><a class="btn" href="' + L.cfg.siteUrl + '/courses/' + esc(slug) + '/">See the course on vidiksha.in</a>');
-    L.render('<div class="page-head"><div><p class="eyebrow">Course</p><h1>' + esc(c.course_title) + '</h1><p>' + (active(c) ? 'Recording access ' + esc(L.until(c.until)) + '.' : 'Your access ended on ' + esc(L.fmtDate(c.until)) + '. Write to team@vidiksha.in to extend it.') + '</p></div></div>' +
-      '<div class="grid grid-2" style="grid-template-columns: 1.4fr 1fr; align-items:start"><div><div class="section-head"><h2>Sessions</h2></div><div id="lectures">' + L.spinner() + '</div>' +
-      '<div class="section"><div class="section-head"><h2>Assignments</h2></div><div id="assignments">' + L.spinner() + '</div></div></div>' +
-      '<div><div class="section-head"><h2>Materials</h2></div><div id="materials">' + L.spinner() + '</div><div class="section"><div class="section-head"><h2>Announcements</h2></div><div id="cnotices">' + L.spinner() + '</div></div></div></div>');
+    var tab = TABS.some(function (t) { return t[0] === q.tab; }) ? q.tab : 'sessions';
+    var info = CUR[slug] || {};
+    if (!c) return L.render('<div class="page-head"><div><h1>' + esc(info.title || L.courseName(slug)) + '</h1><p>This course is not on your account.</p></div></div><a class="btn" href="' + L.cfg.siteUrl + '/courses/' + esc(slug) + '/">See the course on vidiksha.in</a>');
+    L.render('<div class="page-head"><div><p class="eyebrow">Course</p><h1>' + esc(c.course_title) + '</h1><p>' + (active(c) ? 'Recording access ' + esc(L.until(c.until)) + '.' : 'Your access ended on ' + esc(L.fmtDate(c.until)) + '. Write to team@vidiksha.in to extend it.') + (info.duration ? ' ' + esc(info.duration) + (info.unitNote ? ', ' + esc(info.unitNote) : '') + '.' : '') + '</p></div><div id="course-cta"></div></div>' +
+      '<div class="course-progress" id="course-progress"></div>' +
+      '<div class="tabs">' + TABS.map(function (t) { return '<a href="#/course/' + esc(slug) + '?tab=' + t[0] + '" class="' + (tab === t[0] ? 'is-active' : '') + '">' + t[1] + '</a>'; }).join('') + '</div><div id="tab">' + L.spinner() + '</div>');
     Promise.all([
       sb.from('lectures').select('*').eq('course_slug', slug).order('position'),
-      sb.from('lecture_progress').select('*').eq('user_id', session.user.id),
-      sb.from('assignments').select('*').eq('course_slug', slug).order('created_at'),
-      sb.from('submissions').select('*').eq('user_id', session.user.id),
-      sb.from('materials').select('*').eq('course_slug', slug).order('created_at'),
-      sb.from('announcements').select('*').eq('audience', slug).order('created_at', { ascending: false }).limit(5)
+      sb.from('lecture_progress').select('*').eq('user_id', session.user.id)
     ]).then(function (r) {
       var prog = {}; (r[1].data || []).forEach(function (p) { prog[p.lecture_id] = p; });
-      var lecs = r[0].data || [];
-      $('#lectures').innerHTML = lecs.length ? '<ul class="list">' + lecs.map(function (l, i) {
-        var p = prog[l.id];
-        return '<li><a class="row" href="#/lecture/' + l.id + '"><span class="num">' + String(i + 1).padStart(2, '0') + '</span><div class="grow"><div class="t">' + esc(l.title) + '</div><div class="s">' + esc(L.minutes(l.duration_min)) + (p && !p.completed && p.seconds > 30 ? ' · in progress' : '') + '</div></div><span class="tick ' + (p && p.completed ? 'is-done' : '') + '">' + (p && p.completed ? '✓' : '') + '</span></a></li>';
-      }).join('') + '</ul>' : L.empty('Sessions will appear here as they are released.');
-      var subs = {}; (r[3].data || []).forEach(function (s) { subs[s.assignment_id] = s; });
-      var asg = r[2].data || [];
-      $('#assignments').innerHTML = asg.length ? '<ul class="list">' + asg.map(function (a) {
-        var s = subs[a.id], pill = s ? (s.graded_at ? '<span class="pill ok">Graded' + (s.grade ? ': ' + esc(s.grade) : '') + '</span>' : '<span class="pill">Submitted</span>') : (a.due_at && new Date(a.due_at) < new Date() ? '<span class="pill bad">Overdue</span>' : '<span class="pill warn">To do</span>');
-        return '<li><a class="row" href="#/assignment/' + a.id + '"><div class="grow"><div class="t">' + esc(a.title) + '</div><div class="s">' + (a.due_at ? 'Due ' + esc(L.fmtDate(a.due_at)) : 'No deadline') + '</div></div>' + pill + '</a></li>';
-      }).join('') + '</ul>' : L.empty('No assignments yet.');
-      var mats = r[4].data || [];
-      $('#materials').innerHTML = mats.length ? '<ul class="list">' + mats.map(function (m) { return '<li><div class="grow"><div class="t">' + esc(m.title) + '</div></div><button class="btn btn-ghost btn-sm" data-material="' + m.id + '">Open</button></li>'; }).join('') + '</ul>' : L.empty('No materials yet.');
+      var rows = sessionsFor(slug, r[0].data || [], prog), s = courseStats(rows);
+      $('#course-progress').innerHTML = '<div class="muted small">' + s.done + ' of ' + s.total + ' sessions completed · ' + s.released + ' of ' + s.total + ' recordings released</div><div class="progress"><i style="width:' + s.pct + '%"></i></div>';
+      if (s.next && active(c)) $('#course-cta').innerHTML = '<a class="btn" href="#/lecture/' + s.next.lecture.id + '">▶ ' + (s.next.state === 'progress' ? 'Continue' : 'Start') + ' session ' + s.next.n + '</a>';
+      ({ sessions: sessionsTab, materials: materialsTab, assignments: assignmentsTab, notices: noticesTab })[tab](slug, rows, c);
+    });
+  }
+  function sessionsTab(slug, rows, c) {
+    if (!rows.length) { $('#tab').innerHTML = L.empty('Sessions will appear here as they are released.'); return; }
+    $('#tab').innerHTML = '<ol class="sessions">' + rows.map(function (r) {
+      var canPlay = r.lecture && active(c);
+      return '<li class="session ' + (r.state === 'done' ? 'is-done' : '') + '"><div class="session-num">' + String(r.n).padStart(2, '0') + '</div>' +
+        '<div class="session-body"><div class="session-top"><h3>' + esc(r.lecture && r.extra ? r.lecture.title : r.title) + '</h3>' + statePill(r.state) + '</div>' +
+        (r.lecture && r.lecture.duration_min ? '<div class="muted small">' + esc(L.minutes(r.lecture.duration_min)) + (r.lecture.description ? ' · ' + esc(r.lecture.description.split('\n')[0]).slice(0, 140) : '') + '</div>' : (r.lecture && r.lecture.description ? '<div class="muted small">' + esc(r.lecture.description.split('\n')[0]).slice(0, 140) + '</div>' : '')) +
+        (r.lessons.length ? '<details class="lessons"><summary>What this session covers</summary><ul>' + r.lessons.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></details>' : '') + '</div>' +
+        '<div class="session-action">' + (canPlay ? '<a class="play" href="#/lecture/' + r.lecture.id + '" aria-label="Play session ' + r.n + '"><span class="play-icon">▶</span><span>' + (r.state === 'done' ? 'Watch again' : r.state === 'progress' ? 'Resume' : 'Play') + '</span></a>' : '<span class="play is-off"><span class="play-icon">▶</span><span>' + (r.lecture ? 'Access ended' : 'Coming soon') + '</span></span>') + '</div></li>';
+    }).join('') + '</ol>';
+  }
+  function materialsTab(slug) {
+    sb.from('materials').select('*, lectures(position, title)').eq('course_slug', slug).order('created_at').then(function (r) {
+      var mats = r.data || [];
+      $('#tab').innerHTML = mats.length ? '<ul class="list">' + mats.map(function (m) { return '<li><div class="grow"><div class="t">' + esc(m.title) + '</div><div class="s">' + (m.lectures ? 'Session ' + m.lectures.position + ': ' + esc(m.lectures.title) : 'Whole course') + (m.url ? ' · link' : ' · file') + '</div></div><button class="btn btn-ghost btn-sm" data-material="' + m.id + '">' + (m.url ? 'Open' : 'Download') + '</button></li>'; }).join('') + '</ul>' : L.empty('No materials yet. Checklists and sample drafts appear here as sessions are released.');
       $$('[data-material]').forEach(function (b) { b.addEventListener('click', function () { openMaterial(mats.filter(function (m) { return m.id === b.getAttribute('data-material'); })[0], b); }); });
-      $('#cnotices').innerHTML = (r[5].data && r[5].data.length) ? r[5].data.map(noticeHtml).join('') : L.empty('No course announcements.');
+    });
+  }
+  function assignmentsTab(slug) {
+    Promise.all([sb.from('assignments').select('*, lectures(position)').eq('course_slug', slug).order('created_at'), sb.from('submissions').select('*').eq('user_id', session.user.id)]).then(function (r) {
+      var subs = {}; (r[1].data || []).forEach(function (s) { subs[s.assignment_id] = s; });
+      var asg = r[0].data || [];
+      $('#tab').innerHTML = asg.length ? '<ul class="list">' + asg.map(function (a) {
+        var s = subs[a.id], pill = s ? (s.graded_at ? '<span class="pill ok">Graded' + (s.grade ? ': ' + esc(s.grade) : '') + '</span>' : '<span class="pill">Submitted</span>') : (a.due_at && new Date(a.due_at) < new Date() ? '<span class="pill bad">Overdue</span>' : '<span class="pill warn">To do</span>');
+        return '<li><a class="row" href="#/assignment/' + a.id + '"><div class="grow"><div class="t">' + esc(a.title) + '</div><div class="s">' + (a.lectures ? 'After session ' + a.lectures.position + ' · ' : '') + (a.due_at ? 'Due ' + esc(L.fmtDate(a.due_at)) : 'No deadline') + '</div></div>' + pill + '</a></li>';
+      }).join('') + '</ul>' : L.empty('No assignments yet. Each session ends with a practice exercise; they appear here as sessions are released.');
+    });
+  }
+  function noticesTab(slug) {
+    sb.from('announcements').select('*').or('audience.eq.all,audience.eq.' + slug).order('pinned', { ascending: false }).order('created_at', { ascending: false }).then(function (r) {
+      $('#tab').innerHTML = (r.data && r.data.length) ? r.data.map(noticeHtml).join('') : L.empty('No announcements yet.');
     });
   }
   function openMaterial(m, btn) {
@@ -170,6 +212,8 @@
       window.open(r.data.signedUrl, '_blank', 'noopener');
     });
   }
+
+  /* ------------------------------------------------------------ lecture */
   function lecturePage(id) {
     L.render(L.spinner('Loading session'));
     sb.from('lectures').select('*').eq('id', id).maybeSingle().then(function (r) {
@@ -177,29 +221,34 @@
       if (!l) return L.render(L.empty('This session is not available to you.'));
       Promise.all([
         sb.from('lectures').select('id, title, position').eq('course_slug', l.course_slug).order('position'),
-        sb.from('lecture_progress').select('*').eq('user_id', session.user.id).eq('lecture_id', id).maybeSingle(),
+        sb.from('lecture_progress').select('*').eq('user_id', session.user.id),
         sb.from('materials').select('*').eq('lecture_id', id),
         sb.from('assignments').select('id, title').eq('lecture_id', id)
       ]).then(function (rr) {
-        var all = rr[0].data || [], idx = all.findIndex(function (x) { return x.id === id; }), prev = all[idx - 1], next = all[idx + 1];
-        var p = rr[1].data, mats = rr[2].data || [], asg = rr[3].data || [];
-        L.render('<p class="eyebrow"><a href="#/course/' + esc(l.course_slug) + '">' + esc(L.courseName(l.course_slug)) + '</a> · Session ' + (idx + 1) + ' of ' + all.length + '</p><h1>' + esc(l.title) + '</h1>' +
+        var all = rr[0].data || [], prog = {}; (rr[1].data || []).forEach(function (x) { prog[x.lecture_id] = x; });
+        var rows = sessionsFor(l.course_slug, all, prog), me = rows.filter(function (x) { return x.lecture && x.lecture.id === id; })[0] || { n: l.position, lessons: [] };
+        var idx = rows.indexOf(me), prev = null, next = null;
+        for (var i = idx - 1; i >= 0; i--) if (rows[i].lecture) { prev = rows[i]; break; }
+        for (var j = idx + 1; j < rows.length; j++) if (rows[j].lecture) { next = rows[j]; break; }
+        var p = prog[id], mats = rr[2].data || [], asg = rr[3].data || [];
+        L.render('<p class="eyebrow"><a href="#/course/' + esc(l.course_slug) + '">' + esc(L.courseName(l.course_slug)) + '</a> · Session ' + me.n + ' of ' + rows.length + '</p><h1>' + esc(l.title) + '</h1>' +
           '<div class="lecture-layout"><div><div class="player" id="player">' + L.spinner('Loading video') + '</div>' +
           '<div class="actions" style="margin:1rem 0 1.5rem"><button class="btn ' + (p && p.completed ? 'btn-ghost' : '') + '" id="done">' + (p && p.completed ? '✓ Completed' : 'Mark as completed') + '</button>' +
-          (prev ? '<a class="btn btn-ghost" href="#/lecture/' + prev.id + '">← Previous</a>' : '') + (next ? '<a class="btn btn-ghost" href="#/lecture/' + next.id + '">Next →</a>' : '') + '</div>' +
+          (prev ? '<a class="btn btn-ghost" href="#/lecture/' + prev.lecture.id + '">← Session ' + prev.n + '</a>' : '') + (next ? '<a class="btn btn-ghost" href="#/lecture/' + next.lecture.id + '">Session ' + next.n + ' →</a>' : '<a class="btn btn-ghost" href="#/course/' + esc(l.course_slug) + '?tab=assignments">Assignments →</a>') + '</div>' +
           '<div class="prose">' + L.nl2p(l.description) + '</div></div>' +
           '<aside><div class="card"><p class="eyebrow">This session</p><div class="kv"><dt>Length</dt><dd>' + esc(L.minutes(l.duration_min) || '—') + '</dd></div>' +
-          (mats.length ? '<h3 style="margin-top:1rem">Materials</h3><ul class="list">' + mats.map(function (m) { return '<li><div class="grow t">' + esc(m.title) + '</div><button class="btn btn-ghost btn-sm" data-material="' + m.id + '">Open</button></li>'; }).join('') + '</ul>' : '') +
+          (me.lessons.length ? '<h3 style="margin-top:1rem">What it covers</h3><ul class="covers">' + me.lessons.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') +
+          (mats.length ? '<h3 style="margin-top:1rem">Materials</h3><ul class="list">' + mats.map(function (m) { return '<li><div class="grow t">' + esc(m.title) + '</div><button class="btn btn-ghost btn-sm" data-material="' + m.id + '">' + (m.url ? 'Open' : 'Download') + '</button></li>'; }).join('') + '</ul>' : '') +
           (asg.length ? '<h3 style="margin-top:1rem">Practice exercise</h3><ul class="list">' + asg.map(function (a) { return '<li><a class="row" href="#/assignment/' + a.id + '"><div class="grow t">' + esc(a.title) + '</div>→</a></li>'; }).join('') + '</ul>' : '') +
-          '</div></aside></div>');
+          '</div>' + (next ? '<div class="card" style="margin-top:1rem"><p class="eyebrow">Up next</p><a class="row" href="#/lecture/' + next.lecture.id + '"><span class="num">' + String(next.n).padStart(2, '0') + '</span><div class="grow t">' + esc(next.lecture.title) + '</div></a></div>' : '') + '</aside></div>');
         $$('[data-material]').forEach(function (b) { b.addEventListener('click', function () { openMaterial(mats.filter(function (m) { return m.id === b.getAttribute('data-material'); })[0], b); }); });
         $('#done').addEventListener('click', function () {
           var completed = !(p && p.completed);
           sb.from('lecture_progress').upsert({ user_id: session.user.id, lecture_id: id, completed: completed, seconds: (p && p.seconds) || 0, updated_at: new Date().toISOString() }).then(function (x) {
             if (x.error) return L.toast(L.err(x.error), 'error');
-            p = p || {}; p.completed = completed;
+            p = p || {}; p.completed = completed; prog[id] = p;
             $('#done').textContent = completed ? '✓ Completed' : 'Mark as completed'; $('#done').className = 'btn ' + (completed ? 'btn-ghost' : '');
-            if (completed) logEvent('lecture_completed', { lecture_id: id, course: l.course_slug });
+            if (completed) { logEvent('lecture_completed', { lecture_id: id, course: l.course_slug }); L.toast(next ? 'Session ' + me.n + ' done. Session ' + next.n + ' is next.' : 'Session ' + me.n + ' done.', 'ok'); }
           });
         });
         showVideo(l, p);
@@ -221,15 +270,18 @@
       });
     } else if (l.video_url) {
       el.innerHTML = '<iframe src="' + esc(L.embedUrl(l.video_url)) + '" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
+      if (!p || p.seconds < 60) sb.from('lecture_progress').upsert({ user_id: session.user.id, lecture_id: l.id, seconds: 60, completed: (p && p.completed) || false, updated_at: new Date().toISOString() }).then(function () {});
     } else el.innerHTML = L.empty('The recording for this session is being uploaded.');
   }
+
+  /* ------------------------------------------------------------ assignments */
   function assignmentPage(id) {
     L.render(L.spinner('Loading'));
     Promise.all([sb.from('assignments').select('*').eq('id', id).maybeSingle(), sb.from('submissions').select('*').eq('assignment_id', id).eq('user_id', session.user.id).maybeSingle()]).then(function (r) {
       var a = r[0].data, s = r[1].data;
       if (!a) return L.render(L.empty('This assignment is not available to you.'));
       var locked = s && s.graded_at;
-      L.render('<p class="eyebrow"><a href="#/course/' + esc(a.course_slug) + '">' + esc(L.courseName(a.course_slug)) + '</a> · Assignment</p><h1>' + esc(a.title) + '</h1><p class="muted">' + (a.due_at ? 'Due ' + esc(L.fmtDateTime(a.due_at)) : 'No deadline') + '</p>' +
+      L.render('<p class="eyebrow"><a href="#/course/' + esc(a.course_slug) + '?tab=assignments">' + esc(L.courseName(a.course_slug)) + '</a> · Assignment</p><h1>' + esc(a.title) + '</h1><p class="muted">' + (a.due_at ? 'Due ' + esc(L.fmtDateTime(a.due_at)) : 'No deadline') + '</p>' +
         '<div class="lecture-layout"><div><div class="prose">' + L.nl2p(a.instructions) + '</div>' +
         '<div class="section"><div class="section-head"><h2>' + (s ? 'Your submission' : 'Submit your work') + '</h2></div>' +
         (locked ? '<div class="card"><p class="eyebrow">Graded ' + esc(L.fmtDate(s.graded_at)) + (s.grade ? ' · ' + esc(s.grade) : '') + '</p>' + (s.feedback ? '<div class="prose">' + L.nl2p(s.feedback) + '</div>' : '<p class="muted">No written feedback.</p>') + '<hr style="border:0;border-top:1px solid var(--line);margin:1rem 0"><div class="prose muted">' + L.nl2p(s.body) + '</div>' + (s.file_path ? '<button class="btn btn-ghost btn-sm" id="sub-file">Open your file</button>' : '') + '</div>'
@@ -258,6 +310,8 @@
       });
     });
   }
+
+  /* ------------------------------------------------------------ notices, messages, profile */
   function noticeHtml(n) {
     return '<div class="notice ' + (n.pinned ? 'is-pinned' : '') + '"><div class="meta">' + esc(L.fmtDate(n.created_at)) + (n.audience !== 'all' ? ' · ' + esc(L.courseName(n.audience)) : '') + (n.pinned ? ' · pinned' : '') + '</div><strong>' + esc(n.title) + '</strong>' + (n.body ? '<div class="prose small" style="margin-top:0.35rem">' + L.nl2p(n.body) + '</div>' : '') + '</div>';
   }
@@ -305,7 +359,7 @@
       var f = L.formData(e.target), st = $('#prof-status'); st.textContent = 'Saving…';
       sb.from('profiles').upsert({ id: session.user.id, email: session.user.email, full_name: f.full_name, whatsapp: f.whatsapp, profession: f.profession, organisation: f.organisation, qualification: f.qualification }).then(function (r) {
         if (r.error) { st.textContent = L.err(r.error); st.className = 'status is-error'; return; }
-        profile = Object.assign(profile, f); st.textContent = 'Saved.'; st.className = 'status is-ok'; shell(); profilePage();
+        profile = Object.assign(profile, f); L.toast('Profile saved', 'ok'); shell(); profilePage();
       });
     });
     $('#pw-form').addEventListener('submit', function (e) {
@@ -314,14 +368,25 @@
       if (f.password !== f.confirm) { st.textContent = 'The two passwords differ.'; st.className = 'status is-error'; return; }
       sb.auth.updateUser({ password: f.password }).then(function (r) { st.textContent = r.error ? L.err(r.error) : 'Password updated.'; st.className = 'status ' + (r.error ? 'is-error' : 'is-ok'); if (!r.error) e.target.reset(); });
     });
-    sb.from('course_enrolments').select('course_title, amount_inr, invoice_no, paid_at, razorpay_payment_id').eq('status', 'paid').order('paid_at', { ascending: false }).then(function (r) {
-      $('#inv').innerHTML = (r.data && r.data.length) ? '<ul class="list">' + r.data.map(function (e) { return '<li><div class="grow"><div class="t">' + esc(e.course_title) + '</div><div class="s">' + esc(e.invoice_no || '') + ' · ' + esc(L.fmtDate(e.paid_at)) + '</div></div><span>' + L.fmtInr(e.amount_inr) + '</span></li>'; }).join('') + '</ul><p class="fine" style="margin-top:0.75rem">The PDF of each invoice was attached to your welcome email. Need a copy? Write to team@vidiksha.in with the invoice number.</p>' : L.empty('No invoices on this account.');
+    sb.from('course_enrolments').select('course_title, amount_inr, invoice_no, paid_at, razorpay_payment_id, razorpay_order_id').eq('status', 'paid').order('paid_at', { ascending: false }).then(function (r) {
+      var rows = r.data || [];
+      $('#inv').innerHTML = rows.length ? '<ul class="list">' + rows.map(function (e, i) { return '<li><div class="grow"><div class="t">' + esc(e.course_title) + '</div><div class="s">' + esc(e.invoice_no || 'Invoice being prepared') + ' · ' + esc(L.fmtDate(e.paid_at)) + ' · ' + L.fmtInr(e.amount_inr) + '</div></div>' + (e.invoice_no ? '<button class="btn btn-ghost btn-sm" data-invoice="' + i + '">Download PDF</button>' : '') + '</li>'; }).join('') + '</ul><p class="fine" style="margin-top:0.75rem">Tax invoice and payment receipt in one PDF, the same document that came with your welcome email.</p>' : L.empty('No invoices on this account.');
+      $$('[data-invoice]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var e = rows[Number(b.getAttribute('data-invoice'))]; b.disabled = true; b.textContent = 'Preparing…';
+          sb.auth.getSession().then(function (s) {
+            return fetch(L.cfg.functionsUrl + '/payments/invoice?order=' + encodeURIComponent(e.razorpay_order_id), { headers: { Authorization: 'Bearer ' + s.data.session.access_token, apikey: L.cfg.anonKey } });
+          }).then(function (res) { if (!res.ok) return res.json().then(function (j) { throw new Error(j.error || 'Could not prepare the invoice.'); }); return res.blob(); })
+            .then(function (blob) { var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'VIDIKSHA-invoice-' + e.invoice_no.replace(/\//g, '-') + '.pdf'; a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000); b.disabled = false; b.textContent = 'Download PDF'; })
+            .catch(function (err) { L.toast(L.err(err), 'error'); b.disabled = false; b.textContent = 'Download PDF'; });
+        });
+      });
     });
   }
 
   /* ------------------------------------------------------------ routing */
   var routes = L.router({
-    '': dashboard, 'courses': coursesPage, 'course/:slug': function (p) { coursePage(p.slug); }, 'lecture/:id': function (p) { lecturePage(p.id); },
+    '': dashboard, 'courses': coursesPage, 'course/:slug': function (p, q) { coursePage(p.slug, q); }, 'lecture/:id': function (p) { lecturePage(p.id); },
     'assignment/:id': function (p) { assignmentPage(p.id); }, 'notices': noticesPage, 'messages': messagesPage, 'profile': profilePage
   }, function () { L.render(L.empty('Page not found.')); });
   var recoveryMode = false;

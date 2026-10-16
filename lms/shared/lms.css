@@ -178,3 +178,33 @@ dialog { border: 1px solid var(--line); padding: 0; max-width: 640px; width: cal
 dialog::backdrop { background: rgba(15, 14, 13, 0.5); }
 dialog .dlg { padding: 1.5rem 1.75rem; }
 dialog h2 { margin-bottom: 1rem; }
+
+/* course page: curriculum sessions */
+.course-progress { margin: -0.75rem 0 1.5rem; max-width: 560px; }
+.course-progress .progress { margin-top: 0.4rem; }
+.course-card h3 a { color: inherit; }
+.course-card h3 a:hover { text-decoration: underline; }
+.sessions { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.session { display: grid; grid-template-columns: 3rem 1fr auto; gap: 1rem 1.25rem; padding: 1.1rem 0; border-bottom: 1px solid var(--line); align-items: start; }
+.session-num { font-family: var(--font-display); font-size: 1.5rem; color: var(--muted); line-height: 1.2; }
+.session.is-done .session-num { color: var(--accent); }
+.session-top { display: flex; gap: 0.75rem; align-items: baseline; flex-wrap: wrap; }
+.session-top h3 { margin: 0; font-size: 1.2rem; }
+.lessons { margin-top: 0.5rem; font-size: 0.9rem; }
+.lessons summary { cursor: pointer; color: var(--accent); list-style: none; }
+.lessons summary::-webkit-details-marker { display: none; }
+.lessons summary::before { content: '+ '; }
+.lessons[open] summary::before { content: '\2212  '; }
+.lessons ul { margin: 0.5rem 0 0; padding-left: 1.1rem; color: #33312c; }
+.lessons li { padding: 0.15rem 0; }
+.session-action { align-self: center; }
+.play { display: inline-flex; align-items: center; gap: 0.6rem; border: 1px solid var(--text); background: var(--text); color: #fafaf9; padding: 0.55rem 1rem 0.55rem 0.6rem; font-size: 0.9rem; font-weight: 500; white-space: nowrap; }
+.play:hover { background: #2a2825; text-decoration: none; }
+.play-icon { width: 28px; height: 28px; border-radius: 50%; background: #fafaf9; color: var(--text); display: grid; place-items: center; font-size: 0.7rem; padding-left: 2px; }
+.play.is-off { background: transparent; color: var(--muted); border-color: var(--line); cursor: default; }
+.play.is-off .play-icon { background: var(--line); color: var(--muted); }
+.session.is-done .play { background: transparent; color: var(--text); }
+.session.is-done .play .play-icon { background: var(--accent); color: #fff; }
+.covers { margin: 0; padding-left: 1.1rem; font-size: 0.9rem; color: #33312c; }
+.covers li { padding: 0.15rem 0; }
+@media (max-width: 640px) { .session { grid-template-columns: 2.4rem 1fr; } .session-action { grid-column: 2; } }

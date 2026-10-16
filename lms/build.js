@@ -7,6 +7,7 @@ const ROOT = __dirname;
 const DIST = path.join(ROOT, 'dist');
 const APPS = { portal: 'portal.vidiksha.in', control: 'control.vidiksha.in' };
 
+require('./curriculum.js').writeCurriculum();
 fs.rmSync(DIST, { recursive: true, force: true });
 for (const [app, domain] of Object.entries(APPS)) {
   const out = path.join(DIST, app);
