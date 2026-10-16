@@ -5,6 +5,7 @@
 //   POST /create-order   form details + course_slug  -> Razorpay order (server-side price) + pending enrolment row
 //   POST /verify         order id, payment id, signature from Checkout -> marks paid, then account + invoice + email + sheet
 //   POST /webhook        Razorpay webhook (payment.captured / payment.failed) -> same, for browsers that closed early
+//   POST /retry          order id + payment id of a captured payment -> re-runs the steps above, reports what failed
 //   GET  /status         health check: which secrets are present
 //
 // Deploy:  supabase functions deploy payments --no-verify-jwt
@@ -145,6 +146,8 @@ async function markPaid(orderId: string, paymentId: string) {
   const rows = await db(`course_enrolments?razorpay_order_id=eq.${encodeURIComponent(orderId)}&select=*`);
   let e = rows?.[0];
   if (!e) throw new Error(`no enrolment for order ${orderId}`);
+  const errors: string[] = [];
+  const fail = (step: string, err: unknown) => { const m = `${step}: ${String(err).slice(0, 300)}`; console.error(m); errors.push(m); };
 
   if (e.status !== "paid") {
     const p = await razorpayPayment(paymentId);
@@ -161,7 +164,7 @@ async function markPaid(orderId: string, paymentId: string) {
       password = acc.password;
       await patch(e.id, { user_id: acc.userId, account_status: acc.status });
       e = { ...e, user_id: acc.userId, account_status: acc.status };
-    } catch (err) { console.error("account", String(err)); }
+    } catch (err) { fail("account", err); }
   }
 
   // 2. Invoice number (consecutive per financial year).
@@ -169,13 +172,13 @@ async function markPaid(orderId: string, paymentId: string) {
     try {
       const no = await rpc("assign_invoice_number", { enrolment: e.id });
       e = { ...e, invoice_no: no, invoice_at: new Date().toISOString() };
-    } catch (err) { console.error("invoice number", String(err)); }
+    } catch (err) { fail("invoice number", err); }
   }
 
   // 3. Welcome email with credentials and the invoice PDF. Skipped (and retried later) if the account or
   //    invoice step failed, since the email must not go out without them.
   if (!e.welcome_sent_at && e.user_id && e.invoice_no) {
-    if (!RESEND_KEY) console.error("RESEND_API_KEY not set; welcome email not sent for", e.id);
+    if (!RESEND_KEY) fail("welcome email", "RESEND_API_KEY not set");
     else {
       try {
         if (e.account_status === "created" && !password) {
@@ -201,7 +204,7 @@ async function markPaid(orderId: string, paymentId: string) {
         await sendMail(RESEND_KEY, MAIL_FROM, MAIL_REPLY_TO, mail);
         await patch(e.id, { welcome_sent_at: new Date().toISOString() });
         e = { ...e, welcome_sent_at: new Date().toISOString() };
-      } catch (err) { console.error("welcome email", String(err)); }
+      } catch (err) { fail("welcome email", err); }
     }
   }
 
@@ -215,8 +218,9 @@ async function markPaid(orderId: string, paymentId: string) {
       address_line: e.address_line, city: e.city, state: e.state, pincode: e.pincode, status: "paid",
     });
     if (ok) await patch(e.id, { sheet_sent_at: new Date().toISOString() });
+    else fail("sheet", "webhook did not answer ok");
   }
-  return e;
+  return { ...e, errors };
 }
 
 /* ---- routes ---- */
@@ -258,7 +262,19 @@ async function verify(req: Request, origin: string | null) {
   const expected = await hmacHex(RZP_KEY_SECRET, `${orderId}|${paymentId}`);
   if (!safeEqual(expected, sig)) return json({ error: "Payment could not be verified." }, 400, origin);
   const e = await markPaid(orderId, paymentId);
-  return json({ ok: true, course: e.course_title, email: e.email, account: e.account_status || null, welcomed: !!e.welcome_sent_at, invoice: e.invoice_no || null }, 200, origin);
+  return json({ ok: true, course: e.course_title, email: e.email, account: e.account_status || null, welcomed: !!e.welcome_sent_at, invoice: e.invoice_no || null, errors: e.errors }, 200, origin);
+}
+
+/** Re-runs the post-payment steps for a payment Razorpay confirms as captured. Idempotent, so safe to call again;
+ *  used when an email or sheet step failed after the browser had already left. Needs both ids. */
+async function retry(req: Request, origin: string | null) {
+  const b = await req.json().catch(() => ({})) as Json;
+  const orderId = clean(b.razorpay_order_id, 80), paymentId = clean(b.razorpay_payment_id, 80);
+  if (!orderId || !paymentId) return json({ error: "Missing order or payment id." }, 400, origin);
+  const p = await razorpayPayment(paymentId);
+  if (!p || p.order_id !== orderId || p.status !== "captured") return json({ error: "Razorpay does not confirm this payment as captured." }, 400, origin);
+  const e = await markPaid(orderId, paymentId);
+  return json({ ok: true, status: e.status, account: e.account_status || null, invoice: e.invoice_no || null, welcomed: !!e.welcome_sent_at, sheet: !!e.sheet_sent_at, errors: e.errors }, 200, origin);
 }
 
 async function webhook(req: Request) {
@@ -286,6 +302,7 @@ Deno.serve(async (req) => {
     if (path.endsWith("/create-order") && req.method === "POST") return await createOrder(req, origin);
     if (path.endsWith("/verify") && req.method === "POST") return await verify(req, origin);
     if (path.endsWith("/webhook") && req.method === "POST") return await webhook(req);
+    if (path.endsWith("/retry") && req.method === "POST") return await retry(req, origin);
     if (path.endsWith("/status")) return json({ ok: true, razorpay: !!(RZP_KEY_ID && RZP_KEY_SECRET), webhook: !!RZP_WEBHOOK_SECRET, sheet: !!SHEET_URL, email: !!RESEND_KEY, gstin: !!SELLER.gstin, portal: PORTAL_URL || null }, 200, origin);
     return json({ error: "Not found" }, 404, origin);
   } catch (e) {
