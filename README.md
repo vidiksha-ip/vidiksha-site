@@ -131,9 +131,9 @@ Create `content/training/<slug>.json`. Sessions are listed at `/live-training/`:
 
 `datetime` is the start in IST and `duration` is minutes; the pages show the range ("4 pm to 7 pm IST") and whole hours as "3 hours". `format` and `certificate` are optional lines shown as ticks on the card. Whether a session is upcoming or past is decided by `datetime` at build time, so rebuild after the session to move it to replays. `price: 0` shows as free; any other price is labelled "inaugural". Course prices are labelled "inaugural price" everywhere they appear; to drop that label later, search `lib/` for the word. Add `replayUrl` once the recording is up; until then past sessions show "Replay coming soon". The earliest upcoming session is featured on the home page.
 
-## Member login for the Research tab
+## Member accounts
 
-The Research tab is for registered members only. Accounts live in Supabase Auth (email and password, confirmation emails, password resets) and the site keeps a member table alongside it. Nothing else on the site needs a login.
+The Research tab is public: anyone can search the case law repository without an account, and the website has no login button. Accounts (Supabase Auth: email and password, confirmation emails, password resets) exist for the learning portal and are created by course purchases and live-training registrations; the site keeps a member table alongside them.
 
 What is in the database (`supabase/migrations/0001_members.sql`):
 
@@ -144,8 +144,6 @@ What is in the database (`supabase/migrations/0001_members.sql`):
 
 Row level security means a member can only read or change their own rows; the Supabase dashboard sees everything.
 
-How the gate works: `serve.js` refuses to serve anything under `/research/data/`, `/research/fts/` or `/research/text/` without a valid Supabase session token in the `Authorization` header, so the data cannot be fetched by skipping the page. The page itself shows a log-in / create-account panel until a session exists, then loads the index with the token on every request. Sign-up data goes straight to Supabase from the browser; the site's own server never sees passwords.
-
 Set-up, once, in a Supabase account of your choosing:
 
 1. Create a project (any region; Mumbai, `ap-south-1`, is closest to your users). In **Project Settings → API** copy the **Project URL** and the **publishable** (anon) key.
@@ -153,8 +151,6 @@ Set-up, once, in a Supabase account of your choosing:
 3. In **Authentication → URL Configuration** set the Site URL to the site's address (for local testing, `http://localhost:4321`) and add `http://localhost:4321/research/` and the production `/research/` URL to the redirect list, so password-reset links land on the Research page.
 4. Put the URL and key in `content/site.json` under `supabase`, or set `SUPABASE_URL` and `SUPABASE_ANON_KEY` in the environment of the server. Rebuild.
 5. Optional: **Authentication → Providers → Email** lets you turn off "Confirm email" while testing; leave it on in production.
-
-Without a URL and key configured, the gate is off and the research data is served openly, which is the right behaviour on a developer's machine and nowhere else.
 
 ### Live training registration
 
@@ -223,7 +219,7 @@ Out of the box, confirmation and reset emails come from Supabase's shared sender
 
 Reply-to can be set to team@vidiksha.in in the same SMTP screen if you want members to be able to answer.
 
-On GitHub Pages there is no server, so the gate is Supabase's own: the research data sits in a private Storage bucket whose read policy admits authenticated members only, and the page fetches it with the member's session token. Locally, `serve.js` plays the same role for files in `dist/research/`.
+The research data (`dist/research/`: year shards, full-text shards and one text file per judgment, about 350 MB) is built from the committed `content/research/*.jsonl.gz` files on every deploy and published with the site. The private Storage bucket `research` and `scripts/research-upload.py` are no longer used and can be deleted.
 
 ## Research: the IP case-law repository
 

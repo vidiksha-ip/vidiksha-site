@@ -108,11 +108,6 @@ async function handle(req, res) {
     if (req.method !== 'POST') return send(res, 405, '{"ok":false,"error":"POST only"}');
     return registerSession(req, res);
   }
-  if (supabase && PROTECTED.test(urlPath)) {
-    const m = /^Bearer\s+(.+)$/i.exec(req.headers.authorization || '');
-    if (!m) return send(res, 401, '{"error":"Sign in to use the research repository."}');
-    if (!(await verifyToken(m[1].trim()))) return send(res, 401, '{"error":"Your session has expired. Sign in again."}');
-  }
   let file = path.normalize(path.join(root, urlPath));
   if (!file.startsWith(root)) return send(res, 403, 'Forbidden', 'text/plain');
   if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');
@@ -121,10 +116,9 @@ async function handle(req, res) {
     return fs.createReadStream(path.join(root, '404.html')).pipe(res);
   }
   const headers = { 'Content-Type': types[path.extname(file)] || 'application/octet-stream' };
-  if (PROTECTED.test(urlPath)) headers['Cache-Control'] = 'private, max-age=300';
   res.writeHead(200, headers);
   fs.createReadStream(file).pipe(res);
 }
 
 http.createServer((req, res) => { handle(req, res).catch(() => send(res, 500, 'Server error', 'text/plain')); })
-  .listen(port, () => console.log(`VIDIKSHA: http://localhost:${port}${supabase ? ' (research data protected by Supabase login)' : ''}`));
+  .listen(port, () => console.log(`VIDIKSHA: http://localhost:${port}`));

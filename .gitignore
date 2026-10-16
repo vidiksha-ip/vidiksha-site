@@ -5,8 +5,6 @@ dist/
 data/
 node_modules/
 # large, regenerable research inputs (scripts/research-index.py rebuilds them; the JSON records are committed)
-content/research/*.tokens.jsonl.gz
-content/research/*.text.jsonl.gz
 # local only
 .env
 *.log

@@ -11,7 +11,7 @@ const DIST = path.join(ROOT, 'dist');
 const CONTENT = path.join(ROOT, 'content');
 const SRC = path.join(ROOT, 'src');
 // Production (GitHub Pages) builds publish only the public site. The research data is never written to dist/ there:
-// it lives in a private Supabase Storage bucket (see scripts/research-upload.py) that the page reads after login.
+// it is published as static files with the site (public, no login).
 // Local builds keep the data in dist/research/ so serve.js can serve it behind its own login check.
 const PRODUCTION = process.argv.includes('--production') || process.env.SITE_ENV === 'production';
 
@@ -288,7 +288,7 @@ function loadLinks() {
   return fs.existsSync(f) ? readJSON(f) : {};
 }
 function writeResearchData(cases) {
-  const dir = path.join(PRODUCTION ? path.join(ROOT, '.research-build') : DIST, 'research', 'data');
+  const dir = path.join(DIST, 'research', 'data');
   fs.rmSync(path.dirname(dir), { recursive: true, force: true });
   fs.mkdirSync(dir, { recursive: true });
   const links = loadLinks();
@@ -296,11 +296,6 @@ function writeResearchData(cases) {
   for (const c of cases) if (links[c.id]) { c.u = links[c.id]; linked++; }
   // Stable integer ids for the full-text index: position in case_id order.
   [...cases].sort((a, b) => (a.id < b.id ? -1 : 1)).forEach((c, i) => { c.i = i; });
-  if (PRODUCTION) {
-    // Only the counts for the page copy are needed; the data itself is served from Supabase Storage.
-    for (const c of cases) c.x = 1;
-    return manifestFor(cases, { indexed: 0, terms: 0, postings: 0, stop: 0 }, { written: 0, mb: 0 }, linked);
-  }
   const text = writeResearchText(cases);
   const issuesFile = path.join(CONTENT, 'research', 'issues.json');
   if (fs.existsSync(issuesFile)) fs.copyFileSync(issuesFile, path.join(DIST, 'research', 'issues.json'));
@@ -398,7 +393,7 @@ function build() {
 
   const f = data.research.fts || {};
   const r = data.research;
-  console.log(`Built ${urls.length} pages${PRODUCTION ? ' [production: research data not in dist]' : ''} (${data.posts.length} posts, ${data.courses.length} courses, ${data.webinars.upcoming.length + data.webinars.past.length} training sessions, ${r.total} judgments in research index, full text for ${f.indexed || 0}: ${(f.terms || 0).toLocaleString()} terms, ${(f.postings || 0).toLocaleString()} postings; judgment text files ${(r.text || {}).written || 0} (${(r.text || {}).mb || 0} MB); PDF links ${r.linked || 0}) in ${Date.now() - t0} ms -> dist/`);
+  console.log(`Built ${urls.length} pages${PRODUCTION ? ' [production]' : ''} (${data.posts.length} posts, ${data.courses.length} courses, ${data.webinars.upcoming.length + data.webinars.past.length} training sessions, ${r.total} judgments in research index, full text for ${f.indexed || 0}: ${(f.terms || 0).toLocaleString()} terms, ${(f.postings || 0).toLocaleString()} postings; judgment text files ${(r.text || {}).written || 0} (${(r.text || {}).mb || 0} MB); PDF links ${r.linked || 0}) in ${Date.now() - t0} ms -> dist/`);
 }
 
 build();
