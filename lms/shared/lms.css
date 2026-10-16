@@ -215,3 +215,13 @@ dialog h2 { margin-bottom: 1rem; }
 .table-wrap.fit table { table-layout: auto; }
 .table-wrap.fit th, .table-wrap.fit td { white-space: normal; }
 .table-wrap.fit th { position: static; }
+
+/* control panel: curriculum editor */
+.cur-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.cur-item { display: grid; grid-template-columns: 2.6rem 1fr auto; gap: 0.75rem 1rem; padding: 0.9rem 0; border-bottom: 1px solid var(--line); align-items: start; }
+.cur-num { font-family: var(--font-display); font-size: 1.3rem; color: var(--muted); }
+.cur-top { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.cur-lessons { margin: 0.35rem 0 0; padding-left: 1.1rem; font-size: 0.88rem; color: #33312c; }
+.cur-lessons li { padding: 0.1rem 0; }
+.cur-actions { display: flex; gap: 0.3rem; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 760px) { .cur-item { grid-template-columns: 2.2rem 1fr; } .cur-actions { grid-column: 2; justify-content: flex-start; } }

@@ -133,7 +133,7 @@
         sb.from('activity_log').select('*').eq('user_id', id).order('created_at', { ascending: false }).limit(40),
         sb.from('staff').select('*').eq('user_id', id).maybeSingle(),
         sb.from('research_logins').select('created_at').eq('user_id', id).order('created_at', { ascending: false }).limit(5),
-        sb.from('lectures').select('id, course_slug, position, title, duration_min').order('position')
+        sb.from('lectures').select('id, course_slug, position, title, duration_min, published, video_url, video_path').order('position')
       ]).then(function (r) {
         var enr = (r[0].data || []).filter(function (e) { return e.status === 'paid'; }).map(function (e) { e.kind = 'enrolment'; return e; }), attempts = (r[0].data || []).filter(function (e) { return e.status !== 'paid'; });
         var grants = (r[1].data || []).map(function (g) { g.kind = 'grant'; return g; }), regs = r[2].data || [], watch = r[3].data || [], subs = r[4].data || [], msgs = r[5].data || [], acts = r[6].data || [], rlog = r[8].data || [], lecs = r[9].data || [];
@@ -160,13 +160,12 @@
 
           '<div class="section"><div class="section-head"><h2>Watching activity</h2><span class="muted small">Every session of each course, with how much of the recording has been watched.</span></div>' +
           (courseSlugs.length ? courseSlugs.map(function (slug) {
-            var mine = lecs.filter(function (l) { return l.course_slug === slug; }), cur = (window.VIDIKSHA_COURSES && window.VIDIKSHA_COURSES[slug] && window.VIDIKSHA_COURSES[slug].sessions) || [];
-            var rows = cur.length ? cur.map(function (c) { return { n: c.n, title: c.title, lecture: mine.filter(function (l) { return l.position === c.n; })[0] }; }) : mine.map(function (l) { return { n: l.position, title: l.title, lecture: l }; });
-            mine.forEach(function (l) { if (!rows.some(function (x) { return x.lecture && x.lecture.id === l.id; })) rows.push({ n: l.position, title: l.title, lecture: l }); });
+            var mine = lecs.filter(function (l) { return l.course_slug === slug; });
+            var rows = mine.map(function (l) { return { n: l.position, title: l.title, lecture: (l.published && (l.video_url || l.video_path)) ? l : null, row: l }; });
             var done = rows.filter(function (x) { return x.lecture && watchBy[x.lecture.id] && watchBy[x.lecture.id].completed; }).length;
             return '<h3 style="margin-top:1rem">' + esc(L.courseName(slug)) + ' <span class="muted small">' + done + ' of ' + rows.length + ' completed</span></h3>' + table([
               { label: '#', get: function (x) { return x.n; } }, { label: 'Session', get: function (x) { return x.title; }, wrap: true },
-              { label: 'Watched', html: function (x) { var w = x.lecture && watchBy[x.lecture.id]; if (!x.lecture) return '<span class="muted">no recording yet</span>'; if (!w) return '<span class="muted">not opened</span>'; var pct = x.lecture.duration_min ? Math.min(100, Math.round(w.seconds / 60 * 100 / x.lecture.duration_min)) : null; return (L.minutes(Math.round(w.seconds / 60)) || '< 1 min') + (pct !== null ? ' <span class="muted small">(' + pct + '%)</span>' : '') + '<div class="progress" style="margin-top:0.3rem;width:120px"><i style="width:' + (w.completed ? 100 : pct || 0) + '%"></i></div>'; } },
+              { label: 'Watched', html: function (x) { var w = x.row && watchBy[x.row.id]; if (!x.lecture && !w) return '<span class="muted">no recording yet</span>'; if (!x.lecture) x.lecture = x.row; if (!w) return '<span class="muted">not opened</span>'; var pct = x.lecture.duration_min ? Math.min(100, Math.round(w.seconds / 60 * 100 / x.lecture.duration_min)) : null; return (L.minutes(Math.round(w.seconds / 60)) || '< 1 min') + (pct !== null ? ' <span class="muted small">(' + pct + '%)</span>' : '') + '<div class="progress" style="margin-top:0.3rem;width:120px"><i style="width:' + (w.completed ? 100 : pct || 0) + '%"></i></div>'; } },
               { label: 'Status', html: function (x) { var w = x.lecture && watchBy[x.lecture.id]; return !x.lecture ? '' : w && w.completed ? '<span class="pill ok">completed</span>' : w ? '<span class="pill warn">in progress</span>' : '<span class="pill">not started</span>'; } },
               { label: 'Last watched', get: function (x) { var w = x.lecture && watchBy[x.lecture.id]; return w ? L.fmtDateTime(w.last_watched) : ''; } }
             ], rows, 'No sessions in this course yet.').replace('<div class="table-wrap">', '<div class="table-wrap fit">');
@@ -259,19 +258,17 @@
     return sb.storage.from(bucket).upload(path, file, { upsert: true, cacheControl: '3600' }).then(function (r) { if (r.error) throw r.error; return r.data.path; });
   }
   function lectureForm(slug, l) {
-    var cur = (window.VIDIKSHA_COURSES && window.VIDIKSHA_COURSES[slug] && window.VIDIKSHA_COURSES[slug].sessions) || [];
-    var posField = cur.length
-      ? L.field('Curriculum session (sets the position; the title fills in if empty)', '<select name="position" data-curriculum>' + cur.map(function (c) { return '<option value="' + c.n + '"' + (Number(l.position) === c.n ? ' selected' : '') + '>' + esc(c.n + '. ' + c.title) + '</option>'; }).join('') + '<option value="' + (cur.length + 1) + '"' + (Number(l.position) > cur.length ? ' selected' : '') + '>Extra session after the curriculum</option></select>')
-      : L.field('Position', '<input type="number" name="position" min="1" value="' + esc(l.position || 1) + '">');
-    return '<div class="form-row">' + L.field('Title', '<input type="text" name="title" required value="' + esc(l.title || '') + '" data-title>') + posField + '</div>' +
-      L.field('Description (what the session covers, shown under the player)', '<textarea name="description">' + esc(l.description || '') + '</textarea>') +
-      L.field('Video link (YouTube unlisted, Vimeo, Loom, Google Drive) — or upload a file below', '<input type="url" name="video_url" value="' + esc(l.video_url || '') + '" placeholder="https://youtu.be/…">') +
+    return '<div class="form-row" style="grid-template-columns: 1fr 120px">' + L.field('Session title', '<input type="text" name="title" required value="' + esc(l.title || '') + '">') + L.field('Position', '<input type="number" name="position" min="1" value="' + esc(l.position || 1) + '">') + '</div>' +
+      L.field('What this session covers (one point per line; shown to students as the curriculum)', '<textarea name="lessons" placeholder="One lesson per line">' + esc((l.lessons || []).join('\n')) + '</textarea>') +
+      L.field('Description (shown under the player)', '<textarea name="description" style="min-height:80px">' + esc(l.description || '') + '</textarea>') +
+      L.field('Recording link (YouTube unlisted, Vimeo, Loom, Google Drive), or upload a file below', '<input type="url" name="video_url" value="' + esc(l.video_url || '') + '" placeholder="https://youtu.be/…">') +
       L.field('Upload recording (mp4). Large files take a while; keep this window open.' + (l.video_path ? ' Current file: ' + esc(l.video_path.split('/').pop()) : ''), '<input type="file" name="video_file" accept="video/mp4,video/webm,video/quicktime">') +
-      '<div class="form-row">' + L.field('Length (minutes)', '<input type="number" name="duration_min" min="1" value="' + esc(l.duration_min || '') + '">') + L.field('Release on (optional; empty = as soon as published)', '<input type="datetime-local" name="release_at" value="' + dtLocal(l.release_at) + '">') + '</div>' +
-      '<label class="check"><input type="checkbox" name="published"' + (l.published ? ' checked' : '') + '> Published (visible to students with access)</label>';
+      '<div class="form-row">' + L.field('Length (minutes)', '<input type="number" name="duration_min" min="1" value="' + esc(l.duration_min || '') + '">') + L.field('Release recording on (optional)', '<input type="datetime-local" name="release_at" value="' + dtLocal(l.release_at) + '">') + '</div>' +
+      '<label class="check"><input type="checkbox" name="published"' + (l.published ? ' checked' : '') + '> Recording released to students (the session itself is always listed in the curriculum)</label>';
   }
   function saveLecture(slug, l, f, form) {
-    var row = { course_slug: slug, title: f.title, position: Number(f.position) || 1, description: f.description, video_url: f.video_url || null, duration_min: Number(f.duration_min) || null, release_at: fromLocal(f.release_at), published: !!f.published, updated_at: new Date().toISOString() };
+    var lessons = String(f.lessons || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
+    var row = { course_slug: slug, title: f.title, position: Number(f.position) || 1, lessons: lessons, description: f.description, video_url: f.video_url || null, duration_min: Number(f.duration_min) || null, release_at: fromLocal(f.release_at), published: !!f.published, updated_at: new Date().toISOString() };
     var file = form.video_file.files[0];
     var up = file ? upload('lms-videos', slug + '/' + Date.now() + '-' + L.safeName(file.name), file).then(function (p) { row.video_path = p; }) : Promise.resolve();
     return up.then(function () { return (l.id ? sb.from('lectures').update(row).eq('id', l.id) : sb.from('lectures').insert(row)).then(must); });
@@ -279,12 +276,27 @@
   function lecturesTab(slug) {
     sb.from('lectures').select('*').eq('course_slug', slug).order('position').then(function (r) {
       var rows = r.data || [];
-      $('#tab').innerHTML = '<div class="toolbar"><button class="btn" id="add">Add session</button><span class="muted small">Students see published sessions whose release date has passed. Position sets the order.</span></div>' +
-        table([{ label: '#', key: 'position' }, { label: 'Title', html: function (l) { return '<a href="#/lecture/' + l.id + '">' + esc(l.title) + '</a>'; }, wrap: true }, { label: 'Video', html: function (l) { return l.video_path ? '<span class="pill ok">file</span>' : l.video_url ? '<span class="pill ok">link</span>' : '<span class="pill warn">none</span>'; } }, { label: 'Length', get: function (l) { return L.minutes(l.duration_min); } }, { label: 'Release', get: function (l) { return l.release_at ? L.fmtDateTime(l.release_at) : ''; } }, { label: 'Published', html: function (l) { return l.published ? '<span class="pill ok">yes</span>' : '<span class="pill">draft</span>'; } }, { label: '', html: function (l) { return '<button class="btn btn-ghost btn-sm" data-edit="' + l.id + '">Edit</button> <button class="btn btn-danger btn-sm" data-del="' + l.id + '">Delete</button>'; } }], rows, 'No sessions yet. Add the first one.');
-      var wire = function (d) { var sel = $('[data-curriculum]', d), t = $('[data-title]', d); if (!sel) return; var fill = function () { var c = (window.VIDIKSHA_COURSES[slug].sessions || []).filter(function (x) { return String(x.n) === sel.value; })[0]; if (c && !t.value.trim()) t.value = c.title; }; sel.addEventListener('change', function () { if (!t.dataset.typed) { t.value = ''; fill(); } }); t.addEventListener('input', function () { t.dataset.typed = '1'; }); fill(); };
-      $('#add').addEventListener('click', function () { wire(dialog('Add session', lectureForm(slug, { position: rows.length + 1 }), function (f, form) { return saveLecture(slug, {}, f, form).then(function () { L.toast('Session added', 'ok'); lecturesTab(slug); }); })); });
+      $('#tab').innerHTML = '<div class="toolbar"><button class="btn" id="add">Add session</button><button class="btn btn-ghost" id="publish-cur">Publish curriculum to vidiksha.in</button><span class="muted small">This list is the curriculum students see. Attach a recording and tick "released" when a session is ready to watch.</span></div><p class="status" id="pub-st"></p>' +
+        '<ol class="cur-list">' + rows.map(function (l, i) {
+          var ready = l.published && (l.video_url || l.video_path) && (!l.release_at || new Date(l.release_at) <= new Date());
+          return '<li class="cur-item"><div class="cur-num">' + String(l.position).padStart(2, '0') + '</div><div class="cur-body"><div class="cur-top"><strong>' + esc(l.title) + '</strong> ' +
+            (ready ? '<span class="pill ok">released</span>' : l.video_url || l.video_path ? '<span class="pill warn">recording attached, not released</span>' : '<span class="pill">no recording</span>') + (l.release_at && new Date(l.release_at) > new Date() ? ' <span class="pill">releases ' + esc(L.fmtDate(l.release_at)) + '</span>' : '') + (l.duration_min ? ' <span class="muted small">' + esc(L.minutes(l.duration_min)) + '</span>' : '') + '</div>' +
+            ((l.lessons || []).length ? '<ul class="cur-lessons">' + l.lessons.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '<div class="muted small">No lesson points yet. Edit to add what this session covers.</div>') + '</div>' +
+            '<div class="cur-actions"><button class="btn btn-ghost btn-sm" data-up="' + l.id + '"' + (i === 0 ? ' disabled' : '') + ' title="Move up">↑</button><button class="btn btn-ghost btn-sm" data-down="' + l.id + '"' + (i === rows.length - 1 ? ' disabled' : '') + ' title="Move down">↓</button><a class="btn btn-ghost btn-sm" href="#/lecture/' + l.id + '">Viewers</a><button class="btn btn-ghost btn-sm" data-edit="' + l.id + '">Edit</button><button class="btn btn-danger btn-sm" data-del="' + l.id + '">Remove</button></div></li>';
+        }).join('') + '</ol>' + (rows.length ? '' : L.empty('No sessions yet. Add the first one.'));
+      var renumber = function (list) { return Promise.all(list.map(function (l, i) { return l.position === i + 1 ? null : sb.from('lectures').update({ position: i + 1 }).eq('id', l.id); }).filter(Boolean)); };
+      var move = function (id, dir) { var i = rows.findIndex(function (x) { return x.id === id; }), j = i + dir; if (j < 0 || j >= rows.length) return; var list = rows.slice(); var t = list[i]; list[i] = list[j]; list[j] = t; renumber(list).then(function () { lecturesTab(slug); }); };
+      $('#add').addEventListener('click', function () { dialog('Add session', lectureForm(slug, { position: rows.length + 1 }), function (f, form) { return saveLecture(slug, {}, f, form).then(function () { L.toast('Session added', 'ok'); lecturesTab(slug); }); }); });
       $$('[data-edit]').forEach(function (b) { b.addEventListener('click', function () { var l = rows.filter(function (x) { return x.id === b.getAttribute('data-edit'); })[0]; dialog('Edit session', lectureForm(slug, l), function (f, form) { return saveLecture(slug, l, f, form).then(function () { L.toast('Saved', 'ok'); lecturesTab(slug); }); }); }); });
-      $$('[data-del]').forEach(function (b) { b.addEventListener('click', function () { if (!confirmDelete('this session and its progress records')) return; sb.from('lectures').delete().eq('id', b.getAttribute('data-del')).then(function () { lecturesTab(slug); }); }); });
+      $$('[data-del]').forEach(function (b) { b.addEventListener('click', function () { if (!confirmDelete('this session, its recording link and the progress records of students who watched it')) return; sb.from('lectures').delete().eq('id', b.getAttribute('data-del')).then(function () { var rest = rows.filter(function (x) { return x.id !== b.getAttribute('data-del'); }); return renumber(rest); }).then(function () { lecturesTab(slug); }); }); });
+      $$('[data-up]').forEach(function (b) { b.addEventListener('click', function () { move(b.getAttribute('data-up'), -1); }); });
+      $$('[data-down]').forEach(function (b) { b.addEventListener('click', function () { move(b.getAttribute('data-down'), 1); }); });
+      $('#publish-cur').addEventListener('click', function () {
+        var st = $('#pub-st'); st.textContent = 'Publishing the curriculum to the website…'; st.className = 'status';
+        sb.auth.getSession().then(function (s) {
+          return fetch(L.cfg.functionsUrl + '/publish-post', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s.data.session.access_token, apikey: L.cfg.anonKey }, body: JSON.stringify({ type: 'curriculum', slug: slug, sessions: rows.map(function (l) { return { title: l.title, lessons: l.lessons || [] }; }) }) }).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'Failed'); return j; }); });
+        }).then(function (j) { st.innerHTML = 'Published. The course page at <a href="' + esc(j.url) + '" target="_blank" rel="noopener">' + esc(j.url) + '</a> updates in a minute or two.'; st.className = 'status is-ok'; }, function (e) { st.textContent = L.err(e); st.className = 'status is-error'; });
+      });
     });
   }
   function lecture(id) {

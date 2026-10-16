@@ -93,14 +93,10 @@
   function accessNote(c) { return c.suspended ? 'Access paused by the VIDIKSHA team. Write to team@vidiksha.in if you think this is a mistake.' : active(c) ? 'Recording access ' + L.until(c.until) + '.' : 'Your access ended on ' + L.fmtDate(c.until) + '. Write to team@vidiksha.in to extend it.'; }
   function logEvent(event, meta) { sb.from('activity_log').insert({ user_id: session.user.id, event: event, meta: meta || null }).then(function () {}); }
 
-  /** Curriculum sessions of a course merged with the recordings published for it (matched by position). */
+  /** The curriculum of a course: every session row, with the recording only where it has been released. */
   function sessionsFor(slug, lectures, progress) {
-    var cur = (CUR[slug] && CUR[slug].sessions) || [];
-    var byPos = {}; lectures.forEach(function (l) { if (!byPos[l.position]) byPos[l.position] = l; });
-    var rows = cur.map(function (c) { return { n: c.n, title: c.title, lessons: c.lessons, lecture: byPos[c.n] || null }; });
-    lectures.forEach(function (l) { if (l.position > cur.length || !cur.length) if (!rows.some(function (r) { return r.lecture && r.lecture.id === l.id; })) rows.push({ n: l.position, title: l.title, lessons: [], lecture: l, extra: true }); });
-    rows.sort(function (a, b) { return a.n - b.n; });
-    rows.forEach(function (r) { var p = r.lecture && progress[r.lecture.id]; r.state = !r.lecture ? 'soon' : p && p.completed ? 'done' : p && p.seconds > 30 ? 'progress' : 'ready'; });
+    var rows = lectures.slice().sort(function (a, b) { return a.position - b.position; }).map(function (l) { return { n: l.position, id: l.id, title: l.title, lessons: l.lessons || [], lecture: l.available ? l : null, row: l }; });
+    rows.forEach(function (r) { var p = progress[r.id]; r.state = !r.lecture ? (p && p.completed ? 'done' : 'soon') : p && p.completed ? 'done' : p && p.seconds > 30 ? 'progress' : 'ready'; });
     return rows;
   }
   function courseStats(rows) {
@@ -133,7 +129,7 @@
     if (!courses.length) { el.innerHTML = L.empty('No courses on this account yet. Courses bought with this email appear here the moment payment is confirmed.'); return; }
     var ids = courses.map(function (c) { return c.course_slug; });
     Promise.all([
-      sb.from('lectures').select('id, course_slug, position, title').in('course_slug', ids),
+      sb.from('lectures_student').select('id, course_slug, position, title, lessons, available').in('course_slug', ids),
       sb.from('lecture_progress').select('lecture_id, completed, seconds').eq('user_id', session.user.id)
     ]).then(function (r) {
       var prog = {}; (r[1].data || []).forEach(function (p) { prog[p.lecture_id] = p; });
@@ -161,7 +157,7 @@
       '<div class="course-progress" id="course-progress"></div>' +
       '<div class="tabs">' + TABS.map(function (t) { return '<a href="#/course/' + esc(slug) + '?tab=' + t[0] + '" class="' + (tab === t[0] ? 'is-active' : '') + '">' + t[1] + '</a>'; }).join('') + '</div><div id="tab">' + L.spinner() + '</div>');
     Promise.all([
-      sb.from('lectures').select('*').eq('course_slug', slug).order('position'),
+      sb.from('lectures_student').select('*').eq('course_slug', slug).order('position'),
       sb.from('lecture_progress').select('*').eq('user_id', session.user.id)
     ]).then(function (r) {
       var prog = {}; (r[1].data || []).forEach(function (p) { prog[p.lecture_id] = p; });
@@ -176,10 +172,10 @@
     $('#tab').innerHTML = '<ol class="sessions">' + rows.map(function (r) {
       var canPlay = r.lecture && active(c);
       return '<li class="session ' + (r.state === 'done' ? 'is-done' : '') + '"><div class="session-num">' + String(r.n).padStart(2, '0') + '</div>' +
-        '<div class="session-body"><div class="session-top"><h3>' + esc(r.lecture && r.extra ? r.lecture.title : r.title) + '</h3>' + statePill(r.state) + '</div>' +
-        (r.lecture && r.lecture.duration_min ? '<div class="muted small">' + esc(L.minutes(r.lecture.duration_min)) + (r.lecture.description ? ' · ' + esc(r.lecture.description.split('\n')[0]).slice(0, 140) : '') + '</div>' : (r.lecture && r.lecture.description ? '<div class="muted small">' + esc(r.lecture.description.split('\n')[0]).slice(0, 140) + '</div>' : '')) +
+        '<div class="session-body"><div class="session-top"><h3>' + esc(r.title) + '</h3>' + statePill(r.state) + '</div>' +
+        (r.row.duration_min || r.row.description ? '<div class="muted small">' + (r.row.duration_min ? esc(L.minutes(r.row.duration_min)) : '') + (r.row.description ? (r.row.duration_min ? ' · ' : '') + esc(r.row.description.split('\n')[0]).slice(0, 140) : '') + '</div>' : '') +
         (r.lessons.length ? '<details class="lessons"><summary>What this session covers</summary><ul>' + r.lessons.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></details>' : '') + '</div>' +
-        '<div class="session-action">' + (canPlay ? '<a class="play" href="#/lecture/' + r.lecture.id + '" aria-label="Play session ' + r.n + '"><span class="play-icon">▶</span><span>' + (r.state === 'done' ? 'Watch again' : r.state === 'progress' ? 'Resume' : 'Play') + '</span></a>' : '<span class="play is-off"><span class="play-icon">▶</span><span>' + (r.lecture ? 'Access ended' : 'Coming soon') + '</span></span>') + '</div></li>';
+        '<div class="session-action">' + (canPlay ? '<a class="play" href="#/lecture/' + r.lecture.id + '" aria-label="Play session ' + r.n + '"><span class="play-icon">▶</span><span>' + (r.state === 'done' ? 'Watch again' : r.state === 'progress' ? 'Resume' : 'Play') + '</span></a>' : '<span class="play is-off"><span class="play-icon">▶</span><span>' + (r.lecture ? 'Access ended' : r.row.release_at && new Date(r.row.release_at) > new Date() ? 'Releases ' + esc(L.fmtDate(r.row.release_at)) : 'Coming soon') + '</span></span>') + '</div></li>';
     }).join('') + '</ol>';
   }
   function materialsTab(slug) {
@@ -217,17 +213,17 @@
   /* ------------------------------------------------------------ lecture */
   function lecturePage(id) {
     L.render(L.spinner('Loading session'));
-    sb.from('lectures').select('*').eq('id', id).maybeSingle().then(function (r) {
+    sb.from('lectures_student').select('*').eq('id', id).maybeSingle().then(function (r) {
       var l = r.data;
       if (!l) return L.render(L.empty('This session is not available to you.'));
       Promise.all([
-        sb.from('lectures').select('id, title, position').eq('course_slug', l.course_slug).order('position'),
+        sb.from('lectures_student').select('id, title, position, lessons, available').eq('course_slug', l.course_slug).order('position'),
         sb.from('lecture_progress').select('*').eq('user_id', session.user.id),
         sb.from('materials').select('*').eq('lecture_id', id),
         sb.from('assignments').select('id, title').eq('lecture_id', id)
       ]).then(function (rr) {
         var all = rr[0].data || [], prog = {}; (rr[1].data || []).forEach(function (x) { prog[x.lecture_id] = x; });
-        var rows = sessionsFor(l.course_slug, all, prog), me = rows.filter(function (x) { return x.lecture && x.lecture.id === id; })[0] || { n: l.position, lessons: [] };
+        var rows = sessionsFor(l.course_slug, all, prog), me = rows.filter(function (x) { return x.id === id; })[0] || { n: l.position, lessons: l.lessons || [] };
         var idx = rows.indexOf(me), prev = null, next = null;
         for (var i = idx - 1; i >= 0; i--) if (rows[i].lecture) { prev = rows[i]; break; }
         for (var j = idx + 1; j < rows.length; j++) if (rows[j].lecture) { next = rows[j]; break; }
@@ -272,7 +268,7 @@
     } else if (l.video_url) {
       el.innerHTML = '<iframe src="' + esc(L.embedUrl(l.video_url)) + '" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
       if (!p || p.seconds < 60) sb.from('lecture_progress').upsert({ user_id: session.user.id, lecture_id: l.id, seconds: 60, completed: (p && p.completed) || false, updated_at: new Date().toISOString() }).then(function () {});
-    } else el.innerHTML = L.empty('The recording for this session is being uploaded.');
+    } else el.innerHTML = L.empty(l.release_at && new Date(l.release_at) > new Date() ? 'This recording is released on ' + L.fmtDateTime(l.release_at) + '.' : 'The recording for this session has not been released yet.');
   }
 
   /* ------------------------------------------------------------ assignments */

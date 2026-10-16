@@ -50,6 +50,26 @@ Deno.serve(async (req) => {
     if (!GH_TOKEN) return json({ error: "Publishing is not configured: GITHUB_TOKEN is missing." }, 503, origin);
 
     const b = await req.json().catch(() => ({}));
+    const gh = (p: string, init: RequestInit = {}) => fetch(`https://api.github.com/repos/${GH_REPO}/contents/${p}`, { ...init, headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "Content-Type": "application/json", "User-Agent": "vidiksha-control-panel", ...(init.headers || {}) } });
+
+    // Curriculum: rewrite the "modules" of content/courses/<slug>.json so the public course page matches the portal.
+    if (b.type === "curriculum") {
+      const cslug = String(b.slug ?? "").replace(/[^a-z0-9-]/g, "");
+      const sessions = Array.isArray(b.sessions) ? b.sessions : [];
+      if (!cslug || !sessions.length) return json({ error: "Course and sessions are required." }, 400, origin);
+      const cpath = `content/courses/${cslug}.json`;
+      const cur = await gh(`${cpath}?ref=${GH_BRANCH}`);
+      if (!cur.ok) return json({ error: `No course file ${cpath} in the repository.` }, 404, origin);
+      const meta = await cur.json();
+      const text = new TextDecoder().decode(Uint8Array.from(atob(String(meta.content).replace(/\n/g, "")), (c) => c.charCodeAt(0)));
+      const course = JSON.parse(text);
+      course.modules = sessions.map((x: Record<string, unknown>) => ({ title: String(x.title ?? "").trim(), lessons: (Array.isArray(x.lessons) ? x.lessons : []).map((l: unknown) => String(l).trim()).filter(Boolean) })).filter((m: { title: string }) => m.title);
+      const putc = await gh(cpath, { method: "PUT", body: JSON.stringify({ message: `Update curriculum: ${course.title}\n\nPublished from the control panel by ${staff.email}`, content: b64(JSON.stringify(course, null, 2) + "\n"), branch: GH_BRANCH, sha: meta.sha, committer: { name: "VIDIKSHA Control Panel", email: "team@vidiksha.in" } }) });
+      const resc = await putc.json();
+      if (!putc.ok) { console.error("github", resc); return json({ error: `GitHub refused the commit: ${resc.message ?? putc.status}` }, 502, origin); }
+      return json({ ok: true, slug: cslug, url: `${SITE_URL}/courses/${cslug}/`, commit: resc.commit?.sha }, 200, origin);
+    }
+
     const title = String(b.title ?? "").trim(), description = String(b.description ?? "").trim(), body = String(b.body ?? "").replace(/\r\n/g, "\n").trim();
     const slug = slugify(b.slug || title);
     const category = CATEGORIES.includes(b.category) ? b.category : "Trademark";
@@ -62,7 +82,6 @@ Deno.serve(async (req) => {
     if (!slug) return json({ error: "Could not make a URL slug from the title." }, 400, origin);
 
     const path = `content/blog/${slug}.md`;
-    const gh = (p: string, init: RequestInit = {}) => fetch(`https://api.github.com/repos/${GH_REPO}/contents/${p}`, { ...init, headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "Content-Type": "application/json", "User-Agent": "vidiksha-control-panel", ...(init.headers || {}) } });
 
     const existing = await gh(`${path}?ref=${GH_BRANCH}`);
     let sha: string | undefined;
