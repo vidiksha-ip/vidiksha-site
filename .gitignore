@@ -10,3 +10,4 @@ content/research/*.text.jsonl.gz
 # local only
 .env
 *.log
+.claude/

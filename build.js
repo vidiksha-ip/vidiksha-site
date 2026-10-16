@@ -44,7 +44,8 @@ function loadContent() {
   const courses = listFiles(path.join(CONTENT, 'courses'), '.json').map((file) => {
     const c = readJSON(file);
     const slug = c.slug || slugify(path.basename(file, '.json'));
-    return { ...c, slug, url: `/courses/${slug}/` };
+    // Enrolment runs on the site's own form and Razorpay when the course sets "enrolOpen": true.
+    return { ...c, slug, url: `/courses/${slug}/`, enrolUrl: `/courses/${slug}/enrol/` };
   }).sort((a, b) => (a.order || 99) - (b.order || 99));
 
   const now = new Date();
@@ -380,7 +381,10 @@ function build() {
   emit('/blog/', pages.blogIndex(data));
   for (const p of data.posts) emit(p.url, pages.post(data, p));
   emit('/courses/', pages.coursesIndex(data));
-  for (const c of data.courses) emit(c.url, pages.course(data, c));
+  for (const c of data.courses) {
+    emit(c.url, pages.course(data, c));
+    if (c.enrolOpen) emit(c.enrolUrl, pages.enrol(data, c));
+  }
   emit('/live-training/', pages.webinars(data));
   for (const w of data.webinars.upcoming) if (!w.externalRegisterUrl) emit(w.registerUrl, pages.register(data, w));
   data.research = writeResearchData(loadResearch());

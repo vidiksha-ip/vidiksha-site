@@ -99,7 +99,7 @@ Create `content/courses/<slug>.json`. Copy an existing file; the fields are:
 | `title`, `subtitle`, `summary` | Headline, one-line pitch (used as meta description), card blurb |
 | `area` | `Trademark`, `Patent`, `Copyright`, `Design` or `Licensing`; matches blog categories |
 | `level`, `duration`, `price` | Free text, free text, integer in INR (GST-inclusive) |
-| `enrollUrl` | Where "Enrol now" goes: your checkout or LMS page |
+| `enrolOpen` | `true` turns on the site's own enrolment page at `/courses/<slug>/enrol/` with Razorpay payment (see "Course enrolment and payments"). Without it the course shows "Ask about this course" |
 | `outcomes` | "What you will actually be able to do" list. First four appear on the home page if featured |
 | `about` | Array of paragraphs |
 | `modules` | Array of `{ "title", "lessons": [...] }`; rendered as the curriculum accordion |
@@ -167,6 +167,32 @@ Every upcoming session gets its own registration page at `/live-training/registe
 
 If a member's email already has an account but the password typed does not match it, the registration is still recorded in the sheet and the local log with the status "existing account, password did not match", and the member is told to log in or reset the password; it is not written to Supabase until they do.
 
+### Course enrolment and payments (Razorpay)
+
+"Enrol now" on a course with `enrolOpen: true` opens `/courses/<slug>/enrol/`: a form for full name, email, WhatsApp number, profession, organisation and the postal address for the IP Prosecution Kit, then the Razorpay payment window. The order of events, and where each piece runs:
+
+1. The browser posts the form to the Supabase Edge Function `payments` (`supabase/functions/payments/index.ts`) at `/create-order`. The function looks the price up in the `course_prices` table (never trusting the browser), creates a Razorpay order for that amount, stores a `course_enrolments` row with status `created`, and returns the order id and the public key id.
+2. Razorpay Checkout (`checkout.razorpay.com/v1/checkout.js`, loaded only on the enrol page) opens with the order, prefilled with name, email and phone. UPI, cards, net banking and wallets are Razorpay's business.
+3. On success the browser sends the order id, payment id and signature to `/verify`. The function recomputes the HMAC-SHA256 signature with the key secret; only if it matches does it mark the enrolment `paid` and post the row to the Google Sheet (tab "Course enrolments"). The sheet row is therefore written only after a verified successful payment, and never by the browser.
+4. Razorpay also calls `/webhook` (`payment.captured`, `payment.failed`) so that a payer who closes the tab before step 3 is still recorded. Both paths are idempotent: one row per order, one sheet row per enrolment.
+
+Set-up, once:
+
+1. Run `supabase/migrations/0004_course_enrolments.sql` in the SQL editor. It creates `course_prices` (seeded with Trademark Prosecution in Practice at ₹7,999), `course_enrolments` and the `enrolment_overview` view. Change a price by editing `course_prices`; the number in the course JSON is only what the page displays.
+2. Deploy the function and give it its secrets. With the Supabase CLI (`npm i -g supabase` or `npx supabase`), from the project folder:
+   ```bash
+   npx supabase login
+   npx supabase link --project-ref <project ref>
+   npx supabase secrets set RAZORPAY_KEY_ID=rzp_xxx RAZORPAY_KEY_SECRET=xxx RAZORPAY_WEBHOOK_SECRET=xxx SHEET_WEBHOOK_URL=https://script.google.com/macros/s/.../exec
+   npx supabase functions deploy payments --no-verify-jwt
+   ```
+   Key id and secret come from Razorpay → Account & Settings → API Keys (test keys first, live keys when you go live). `--no-verify-jwt` is needed because buyers are not logged in; the function has its own checks.
+3. In Razorpay → Account & Settings → Webhooks, add `https://<project ref>.supabase.co/functions/v1/payments/webhook` with a secret of your choosing (the same string you set as `RAZORPAY_WEBHOOK_SECRET`), events `payment.captured` and `payment.failed`.
+4. Redeploy the Apps Script as a new version (the file now routes `type: "enrolment"` to the "Course enrolments" tab): Deploy → Manage deployments → pencil → Version: New version → Deploy. The URL does not change.
+5. `GET https://<project ref>.supabase.co/functions/v1/payments/status` reports whether the keys, webhook secret and sheet URL are set.
+
+Secrets live only in Supabase's secret store. Nothing in this repository, the built site or the Google Sheet contains a Razorpay secret.
+
 ### Emails from noreply@vidiksha.in
 
 Out of the box, confirmation and reset emails come from Supabase's shared sender, which is rate-limited (a few emails an hour) and not branded. Once the vidiksha.in domain exists:
@@ -220,7 +246,7 @@ All of these are in `content/site.json` unless noted.
 - `url`: the production domain. Used for canonical links, OpenGraph, sitemap and RSS.
 - `formEndpoint`: the newsletter and contact forms POST here. Any form backend that accepts a `multipart/form-data` POST works (Formspree, Basin, Netlify Forms, your own endpoint). While it still contains `your-form-id`, the forms show a success message without sending anything.
 - `social`, `email`, `legalName`.
-- `enrollUrl` in each course and `registerUrl` / `replayUrl` in each training session point at placeholder paths on the production domain.
+- `registerUrl` / `replayUrl` in each training session point at placeholder paths on the production domain; courses without `enrolOpen` show "Ask about this course".
 - `src/assets/og-default.svg`: replace with a 1200×630 PNG or JPG if you want link previews on platforms that do not render SVG, and update the `image` default in `lib/html.js`.
 
 ## Changing the design
