@@ -54,9 +54,9 @@
       handler: function (resp) {
         say('Payment received. Confirming…');
         api('/verify', resp).then(function (r) {
-          finish('Payment confirmed for ' + r.course + '. A receipt from Razorpay and your welcome email are on their way to ' + r.email + '. The IP Prosecution Kit ships to the address you gave within 7 working days.');
+          finish('Payment confirmed for ' + r.course + '. Razorpay emails the receipt to ' + r.email + ', and the VIDIKSHA team will write to the same address within one working day with access to the recordings and the community. The IP Prosecution Kit ships to the address you gave within 7 working days.');
         }).catch(function () {
-          finish('Your payment went through. Confirmation is taking a moment longer than usual; you will get the welcome email shortly. If it does not arrive within an hour, write to team@vidiksha.in with your email address.');
+          finish('Your payment went through. Confirmation is taking a moment longer than usual; the VIDIKSHA team will write to you within one working day. If you hear nothing by then, write to team@vidiksha.in with your email address.');
         });
       },
       modal: { ondismiss: function () { say('Payment not completed. Your details are saved; click the button to try again.', false); form.querySelector('button[type="submit"]').disabled = false; } }
