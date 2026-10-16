@@ -258,6 +258,36 @@ A court takes a few minutes per gigabyte of text at typical mirror throughput. T
 
 The corpus does not carry judgment URLs, so each result shows its identifiers (registry number, neutral citation, CNR-style id) and a "Find the full judgment" search link. Nothing here is legal advice; the page says so.
 
+## Learning portal and control panel (lms/)
+
+Two more static apps live in `lms/`, sharing one Supabase project with the site:
+
+- **Learning portal**, `lms/portal/`, for portal.vidiksha.in. Students sign in with the account created at purchase (the credentials in the welcome email). Dashboard with their courses and progress, each course's recorded sessions (video player with resume, mark as completed), materials, assignments with file upload and feedback, announcements, messages with the team, profile and password, invoices.
+- **Control panel**, `lms/control/`, for control.vidiksha.in. Staff only. Overview numbers; every member with search, filters and CSV export; each member's enrolments, grants, training registrations, progress, submissions, messages and activity; all enrolments with payment and kit-address details; training registrations by session; per-course content (sessions with video link or upload, drip release dates, publish toggle; materials; assignments; students; batches); a grading queue; announcements for everyone or one course; messages; a blog editor that publishes to vidiksha.in; team management (admins add staff by email).
+
+Both are plain HTML, CSS and JavaScript talking straight to Supabase with the publishable key. There is no server of ours: every permission is a row level security policy in `supabase/migrations/0006_lms.sql`. Videos, materials and submissions sit in private storage buckets (`lms-videos`, `lms-materials`, `lms-submissions`) and are served through short-lived signed URLs to people the policies allow.
+
+**Run locally** (the apps stay on localhost until you are ready to publish them):
+
+```bash
+node lms/serve.js
+```
+
+Portal at http://localhost:4322, control panel at http://localhost:4323. `.claude/launch.json` has entries `lms` and `control` for the preview pane.
+
+**Set-up, once:**
+
+1. Run `supabase/migrations/0006_lms.sql` in the SQL editor.
+2. Make yourself an admin, in the SQL editor: `select public.make_admin('you@example.com');` (the email of your existing VIDIKSHA account). Admins add further staff from the control panel's Team page.
+3. Blog publishing needs a GitHub token: on github.com as `vidiksha-ip`, Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate. Resource owner `vidiksha-ip`, repository access: only `vidiksha-site`, permission **Contents: Read and write**. Then `npx supabase secrets set GITHUB_TOKEN=github_pat_…` and `npx supabase functions deploy publish-post --no-verify-jwt`. A post written in the control panel becomes `content/blog/<slug>.md` in the repository and the site rebuilds itself.
+4. When the portal goes live, tell the payments function so the welcome email links to it: `npx supabase secrets set PORTAL_URL=https://portal.vidiksha.in`. Also add `https://portal.vidiksha.in/` to Supabase → Authentication → URL Configuration → Redirect URLs, so password resets from the portal land back on it.
+
+**Videos.** Add a session in the control panel and either paste a link (YouTube unlisted, Vimeo, Loom or Google Drive; the player embeds it) or upload an mp4 to the private bucket. Uploaded files stream only to students with access, through signed URLs that expire in three hours. On the Supabase free plan the per-file upload limit is 50 MB, so two-hour recordings need either the Pro plan (files up to 50 GB, 100 GB storage included) or a video host: Vimeo (unlisted, domain-restricted embeds) or Bunny Stream are the usual choices for paid courses because they stop casual downloading; YouTube unlisted is free but anyone with the link can watch.
+
+**Publishing the two apps.** `node lms/build.js` writes `lms/dist/portal` and `lms/dist/control`, each self-contained with a `CNAME` file. GitHub Pages serves one site per repository, so create two more repositories under `vidiksha-ip` (for example `vidiksha-portal`, `vidiksha-control`), push the matching `dist` folder to each (or add a workflow like `.github/workflows/pages.yml` that runs `node lms/build.js` and uploads the folder), enable Pages, set the custom domain, and add two CNAME records at Hostinger: `portal` → `vidiksha-ip.github.io` and `control` → `vidiksha-ip.github.io`. Until then both apps run on localhost only.
+
+**Access rules in one paragraph.** A student has a course for 2 months from payment (`course_enrolments`, status paid) or for as long as a grant says (`course_grants`, added from the member page in the control panel). Students see only published sessions whose release date has passed, materials and published assignments of courses they hold, announcements for everyone or for their courses, and their own submissions, progress, messages and invoices. Staff (`public.staff`) see and edit everything; only admins change the staff list. `course_access` is the view the portal, and any future system, can read to know who owns which course.
+
 ## Things to change before launch
 
 All of these are in `content/site.json` unless noted.
