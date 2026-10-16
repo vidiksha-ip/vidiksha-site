@@ -208,3 +208,10 @@ dialog h2 { margin-bottom: 1rem; }
 .covers { margin: 0; padding-left: 1.1rem; font-size: 0.9rem; color: #33312c; }
 .covers li { padding: 0.15rem 0; }
 @media (max-width: 640px) { .session { grid-template-columns: 2.4rem 1fr; } .session-action { grid-column: 2; } }
+
+/* compact, non-scrolling tables */
+.toolbar select { width: auto; min-width: 180px; }
+.table-wrap.fit { overflow: visible; }
+.table-wrap.fit table { table-layout: auto; }
+.table-wrap.fit th, .table-wrap.fit td { white-space: normal; }
+.table-wrap.fit th { position: static; }

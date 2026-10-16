@@ -89,7 +89,8 @@
       unread = r[2].count || 0;
     });
   }
-  function active(c) { return new Date(c.until) > new Date(); }
+  function active(c) { return !c.suspended && c.until && new Date(c.until) > new Date(); }
+  function accessNote(c) { return c.suspended ? 'Access paused by the VIDIKSHA team. Write to team@vidiksha.in if you think this is a mistake.' : active(c) ? 'Recording access ' + L.until(c.until) + '.' : 'Your access ended on ' + L.fmtDate(c.until) + '. Write to team@vidiksha.in to extend it.'; }
   function logEvent(event, meta) { sb.from('activity_log').insert({ user_id: session.user.id, event: event, meta: meta || null }).then(function () {}); }
 
   /** Curriculum sessions of a course merged with the recordings published for it (matched by position). */
@@ -138,7 +139,7 @@
       var prog = {}; (r[1].data || []).forEach(function (p) { prog[p.lecture_id] = p; });
       el.innerHTML = '<div class="grid grid-2">' + courses.map(function (c) {
         var rows = sessionsFor(c.course_slug, (r[0].data || []).filter(function (l) { return l.course_slug === c.course_slug; }), prog), s = courseStats(rows);
-        return '<div class="card course-card"><p class="eyebrow">' + (active(c) ? 'Access ' + esc(L.until(c.until)) : 'Access ended ' + esc(L.fmtDate(c.until))) + '</p><h3><a href="#/course/' + esc(c.course_slug) + '">' + esc(c.course_title) + '</a></h3>' +
+        return '<div class="card course-card"><p class="eyebrow">' + (c.suspended ? 'Access paused' : active(c) ? 'Access ' + esc(L.until(c.until)) : 'Access ended ' + esc(L.fmtDate(c.until))) + '</p><h3><a href="#/course/' + esc(c.course_slug) + '">' + esc(c.course_title) + '</a></h3>' +
           '<div class="muted small">' + s.done + ' of ' + s.total + ' sessions completed' + (s.released < s.total ? ' · ' + s.released + ' recording' + (s.released === 1 ? '' : 's') + ' released' : '') + '</div><div class="progress"><i style="width:' + s.pct + '%"></i></div>' +
           '<div class="actions" style="margin-top:1rem">' + (s.next && active(c) ? '<a class="btn btn-sm" href="#/lecture/' + s.next.lecture.id + '">▶ ' + (s.next.state === 'progress' ? 'Continue' : 'Start') + ' session ' + s.next.n + '</a>' : '') + '<a class="btn btn-ghost btn-sm" href="#/course/' + esc(c.course_slug) + '">Course page</a></div></div>';
       }).join('') + '</div>';
@@ -156,7 +157,7 @@
     var tab = TABS.some(function (t) { return t[0] === q.tab; }) ? q.tab : 'sessions';
     var info = CUR[slug] || {};
     if (!c) return L.render('<div class="page-head"><div><h1>' + esc(info.title || L.courseName(slug)) + '</h1><p>This course is not on your account.</p></div></div><a class="btn" href="' + L.cfg.siteUrl + '/courses/' + esc(slug) + '/">See the course on vidiksha.in</a>');
-    L.render('<div class="page-head"><div><p class="eyebrow">Course</p><h1>' + esc(c.course_title) + '</h1><p>' + (active(c) ? 'Recording access ' + esc(L.until(c.until)) + '.' : 'Your access ended on ' + esc(L.fmtDate(c.until)) + '. Write to team@vidiksha.in to extend it.') + (info.duration ? ' ' + esc(info.duration) + (info.unitNote ? ', ' + esc(info.unitNote) : '') + '.' : '') + '</p></div><div id="course-cta"></div></div>' +
+    L.render('<div class="page-head"><div><p class="eyebrow">Course</p><h1>' + esc(c.course_title) + '</h1><p>' + esc(accessNote(c)) + (info.duration ? ' ' + esc(info.duration) + (info.unitNote ? ', ' + esc(info.unitNote) : '') + '.' : '') + '</p></div><div id="course-cta"></div></div>' +
       '<div class="course-progress" id="course-progress"></div>' +
       '<div class="tabs">' + TABS.map(function (t) { return '<a href="#/course/' + esc(slug) + '?tab=' + t[0] + '" class="' + (tab === t[0] ? 'is-active' : '') + '">' + t[1] + '</a>'; }).join('') + '</div><div id="tab">' + L.spinner() + '</div>');
     Promise.all([
