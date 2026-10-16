@@ -1,0 +1,62 @@
+{
+  "order": 2,
+  "title": "Patent Drafting and Prosecution",
+  "subtitle": "Draft a specification that survives examination, then prosecute it: read the FER, amend the claims, argue Section 3 and prepare for the hearing.",
+  "area": "Patent",
+  "level": "Intermediate",
+  "duration": "About 26 hours",
+  "price": 14999,
+  "enrollUrl": "https://vidiksha.in/enrol/patent-drafting-and-prosecution",
+  "summary": "Claims first, specification second, prosecution third. Ten modules on real disclosures and real First Examination Reports, from mechanical to software to pharma.",
+  "outcomes": [
+    "Draft a complete specification: field, background, summary, detailed description, claims and abstract, in that order of difficulty",
+    "Write an independent claim with the minimum essential features, and dependent claims that give you real fallback positions",
+    "Read a First Examination Report line by line and classify every objection by the response it needs",
+    "Respond to novelty and inventive-step objections by distinguishing D1 and D2 on the record, not by assertion",
+    "Argue Section 3(k) and Section 3(d) in the structure the Patent Office currently accepts",
+    "Amend claims under Sections 57 and 59 without broadening them, and show the basis in the specification",
+    "Prepare written submissions and an oral strategy for a hearing under Rule 28",
+    "Run the formal side: Form 3 updates, Form 18, Form 4 extensions, and the deadlines that cannot be extended"
+  ],
+  "about": [
+    "Most patent training in India teaches you what the Patents Act says. This course teaches you to write claims, because everything else in the file exists to support them, and to defend those claims when the examiner comes back with D1, D2 and a Section 3(k) objection.",
+    "You will draft three full claim sets and one complete specification, then prosecute two real applications from FER to hearing. The disclosures are from mechanical, software and pharmaceutical matters, so you see how the same method bends to each field.",
+    "This is the longest course we run, and the most demanding. Budget two drafting hours for every hour of video."
+  ],
+  "modules": [
+    { "title": "How a patent is read before it is written", "lessons": ["Reading a granted patent as an examiner, a licensee and an infringer", "Claims first: why the specification exists to support them", "Exercise: map three granted Indian patents to their claim trees"] },
+    { "title": "From invention disclosure to claim strategy", "lessons": ["Interviewing the inventor: the questions that find the invention", "Choosing the independent claim's essential features", "Prior art searching that is good enough to draft with", "Exercise: write a claim strategy memo from a disclosure form"] },
+    { "title": "Drafting claims", "lessons": ["Independent claims: apparatus, method, composition, system", "Dependent claims as fallback positions, not padding", "Claim language: 'comprising', 'consisting of', antecedent basis and clarity under Section 10(4)(c)", "Exercise: draft a full claim set for a mechanical invention", "Exercise: draft a full claim set for a software-implemented invention"] },
+    { "title": "Drafting the specification", "lessons": ["A detailed description that supports every claim term", "Embodiments, examples and ranges", "Drawings and reference numerals", "Abstract and title", "Exercise: complete specification from your claim set"] },
+    { "title": "Filing and formalities", "lessons": ["Forms 1, 2, 3, 5 and 26: what each one actually does", "Provisional versus complete, and the twelve-month clock", "Form 18 and the request for examination; expedited examination on Form 18A", "PCT national phase entry: the Indian specifics", "Exercise: prepare the filing bundle for a complete specification"] },
+    { "title": "Reading the First Examination Report", "lessons": ["Structure of an FER and where the real objections hide", "Classifying objections: novelty, inventive step, Section 3, clarity, unity, formal", "The six-month deadline and the Form 4 extension", "Exercise: annotate two FERs and plan the response"] },
+    { "title": "Responding on novelty and inventive step", "lessons": ["Distinguishing D1 feature by feature", "Inventive step under Section 2(1)(ja): technical advance, economic significance, non-obviousness", "Claim amendments that create distance without surrendering scope", "Exercise: full response to a novelty and inventive-step objection"] },
+    { "title": "Section 3: subject-matter objections", "lessons": ["3(k): computer programmes per se and the technical-effect argument", "3(d): the efficacy data problem", "3(i), 3(j) and the biotech borderline", "Exercise: respond to a 3(k) objection on a fintech claim"] },
+    { "title": "Amendments and the hearing", "lessons": ["Sections 57 and 59: what you can and cannot amend", "Marked-up claims and the basis statement", "Hearing notice under Rule 28, written submissions and the fifteen-day follow-up", "Exercise: prepare the hearing submission and the amended claim set"] },
+    { "title": "Grant and after", "lessons": ["Pre-grant and post-grant opposition, in brief", "Working statements on Form 27", "Renewals and the maintenance calendar", "Exercise: draft a Form 27 for a licensed patent"] }
+  ],
+  "includes": [
+    "28 drafting exercises with model answers",
+    "Two complete prosecution files, FER to hearing",
+    "Claim drafting checklist and specification skeleton",
+    "FER response templates by objection type",
+    "Hearing submission template",
+    "Monthly live drafting clinic, replays included",
+    "Lifetime access and updates"
+  ],
+  "whoFor": [
+    "Associates and patent agents in their first three years of drafting",
+    "Engineers and scientists preparing for the patent agent examination who want the practical half",
+    "In-house counsel at product companies who instruct outside patent counsel",
+    "Litigators who need to read a prosecution history properly"
+  ],
+  "notFor": [
+    "You have never read a claim and are not willing to read fifty",
+    "You want a bar-exam style survey of patent law",
+    "You need PCT or foreign prosecution strategy; this is India-first"
+  ],
+  "faq": [
+    { "q": "Do I need a technical degree?", "a": "No, but you need to be comfortable reading technical descriptions. The mechanical and software examples are chosen to be understandable with care rather than expertise." },
+    { "q": "Does this prepare me for the patent agent exam?", "a": "It prepares you for Paper II, the drafting paper, better than anything else we know of. It does not cover Paper I, which tests the Act and Rules." }
+  ]
+}

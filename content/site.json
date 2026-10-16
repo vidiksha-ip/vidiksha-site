@@ -1,0 +1,183 @@
+{
+  "_note": "Site-wide settings and copy. The publishable Supabase key and the sheet webhook are public by design; the secret key is never stored here.",
+  "name": "VIDIKSHA",
+  "legalName": "Vidiksha Learning LLP",
+  "tagline": "IP law is learned by doing",
+  "description": "VIDIKSHA teaches the practice of intellectual property law in India: drafting objection replies, filing patents, answering examination reports and negotiating licences. Self-paced courses, live training sessions and a practical blog.",
+  "url": "https://vidiksha.in",
+  "email": "team@vidiksha.in",
+  "formEndpoint": "https://formspree.io/f/your-form-id",
+  "supabase": {
+    "url": "https://euvlsarftingglxvsuzq.supabase.co",
+    "anonKey": "sb_publishable_KfR6_R3l2q_-8KD3QjOrOg_x6iNqKTa"
+  },
+  "sheetWebhook": "https://script.google.com/macros/s/AKfycbztPc5wnSQEQ1yi5_WQmUnBeXPZzHZ4o-TWWSSYgvXGZBRXd9MQadZFVMxUmjyYK1Lp/exec",
+  "registrationsSheet": "https://docs.google.com/spreadsheets/d/1Gazbc34HhffVRkUOn-0-Zf02pSWES_rAQorY1vAHpgQ/edit",
+  "social": {
+    "linkedin": "https://www.linkedin.com/company/vidiksha",
+    "youtube": "https://www.youtube.com/@vidiksha",
+    "x": "https://x.com/vidiksha_ip"
+  },
+  "nav": [
+    {
+      "label": "Blog",
+      "href": "/blog/"
+    },
+    {
+      "label": "Courses",
+      "href": "/courses/"
+    },
+    {
+      "label": "Live Training",
+      "href": "/live-training/"
+    },
+    {
+      "label": "Research",
+      "href": "/research/"
+    },
+    {
+      "label": "About",
+      "href": "/about/"
+    },
+    {
+      "label": "Contact",
+      "href": "/contact/"
+    }
+  ],
+  "cta": {
+    "label": "Browse courses",
+    "href": "/courses/"
+  },
+  "loginUrl": "https://learn.vidiksha.in/login",
+  "footerLine": "Practical intellectual property education for lawyers, counsel and founders in India.",
+  "hero": {
+    "title": "IP law is learned by doing. Start doing.",
+    "lede": "Courses, live sessions and articles for lawyers and founders in India who have to draft the reply, file the application and close the licence. Built on real filings. No case summaries."
+  },
+  "compare": [
+    {
+      "theory": "Memorise the grounds for refusal under Section 9.",
+      "practice": "Draft the reply that gets the Section 9 objection waived."
+    },
+    {
+      "theory": "Summarise Novartis v. Union of India.",
+      "practice": "Write a Section 3(d) argument the examiner has not read fifty times."
+    },
+    {
+      "theory": "Define \"inventive step\".",
+      "practice": "Rewrite claim 1 so that D1 and D2 no longer anticipate it."
+    },
+    {
+      "theory": "List the essentials of a valid licence.",
+      "practice": "Negotiate the royalty, audit and quality-control clauses. Then draft them."
+    },
+    {
+      "theory": "Explain the opposition procedure.",
+      "practice": "File a TM-O with evidence the Registrar will actually read."
+    },
+    {
+      "theory": "Pass the exam.",
+      "practice": "Finish the reply by six, with the client waiting."
+    }
+  ],
+  "compareNote": "We are not against theory. We assume you have it. Everything here starts where the LLB and the textbook stopped: at the blank document, with a deadline.",
+  "howCourses": [
+    {
+      "title": "Read the document",
+      "text": "Each module opens with a real filing: an examination report, a licence, an opposition. Client details removed, everything else intact."
+    },
+    {
+      "title": "Draft your response",
+      "text": "You write the reply, the claim set or the clause before you see ours. Expect to spend as long drafting as watching."
+    },
+    {
+      "title": "Compare and fix",
+      "text": "Then the walkthrough: our draft, paragraph by paragraph, with the reasoning. Plus what the Registry or the examiner actually did with it."
+    }
+  ],
+  "courseFaq": [
+    {
+      "q": "Self-paced or cohort?",
+      "a": "Self-paced. You get the whole course on day one and watch the recordings in your own time, for the access period stated on each course page. Enrolled students can also join a live drafting clinic every month; replays are added to the course."
+    },
+    {
+      "q": "Is this for students or practitioners?",
+      "a": "Both, but it is pitched at the practitioner. A final-year student who has done the IP elective will manage. A first-year will struggle, and should start with the blog."
+    },
+    {
+      "q": "Do I need a law degree?",
+      "a": "No. Founders and product managers take the trademark and licensing courses so they can stop paying for work they could review themselves. The patent course assumes you can read a claim; it teaches you the rest."
+    },
+    {
+      "q": "What exactly do I get?",
+      "a": "Video lessons, the source documents, drafting exercises with model answers, editable templates, and a certificate of completion once every exercise is submitted."
+    },
+    {
+      "q": "What does inaugural price mean?",
+      "a": "Launch pricing for the first enrolments. Prices will go up once the inaugural period ends; anyone who enrols now pays the inaugural price and nothing more."
+    },
+    {
+      "q": "What is the refund policy?",
+      "a": "Fourteen days, no questions asked, as long as you have completed fewer than two modules."
+    },
+    {
+      "q": "Is GST included?",
+      "a": "Yes. Prices include GST and a tax invoice is issued automatically on enrolment."
+    }
+  ],
+  "webinarFaq": [
+    {
+      "q": "How long is a session, and when?",
+      "a": "Three hours, 4 pm to 7 pm IST, on a weekday or Saturday as announced. The first hour reads the real examination report together, the second and third draft the response live, with your own documents worked in."
+    },
+    {
+      "q": "Is there a certificate?",
+      "a": "Yes. A Certificate of Training is issued on successful completion, which means attending the full session and submitting the drafting exercise set during it."
+    },
+    {
+      "q": "Are sessions recorded?",
+      "a": "Yes. Everyone who registers gets the replay within 24 hours, with the slides and any templates shown on screen."
+    },
+    {
+      "q": "Why are some free and some paid?",
+      "a": "The inaugural sessions are free. Later sessions that take your own documents and draft on them for three hours carry a small fee, because they are a course in miniature."
+    },
+    {
+      "q": "Can I send my own document?",
+      "a": "For paid sessions, yes. Submit it anonymised up to 48 hours before. We pick two or three to work through live."
+    },
+    {
+      "q": "Which platform?",
+      "a": "Microsoft Teams. The link arrives the morning of the session, and again fifteen minutes before. No account is needed to join from a browser."
+    }
+  ],
+  "about": {
+    "title": "Nobody teaches the practice. So we do.",
+    "story": [
+      "Every law school in India teaches intellectual property the same way. One semester, one textbook, the sections of the Trade Marks Act in order and forty judgments summarised. You learn that Section 9 exists. You learn what the Supreme Court said in <em>Novartis</em>. Then you graduate, join a firm, and someone hands you an examination report due in thirty days. Nobody has ever shown you what a reply looks like.",
+      "That gap is not a secret. Every senior associate in the country learned the work by watching somebody else do it, copying old drafts off the firm server, and getting it wrong a few times on live matters. It is an apprenticeship model with no apprenticeship. It takes about three years, and most people who go through it would not call it teaching.",
+      "VIDIKSHA exists because the practice of IP law is a skill, and skills are taught by repetition on real material. Not lectures about the material. The material.",
+      "So every course here is built around documents: actual examination reports with the client details removed, actual licences, actual oppositions. You read the document, you draft your response, you compare it with ours and with the version the Registry eventually accepted. Then you do the next one.",
+      "We do not teach definitions, because you already have them. We do not summarise cases, because you can read. We teach the forty things a competent practitioner does between receiving a document and sending one back, in the order they do them.",
+      "If you want to understand IP law, there are many good places to go. If you want to do it, you are in the right one."
+    ],
+    "principles": [
+      {
+        "title": "Start from the document",
+        "text": "Every lesson opens with a real filing, report or contract. Theory enters only when the document demands it, and leaves as soon as it is done."
+      },
+      {
+        "title": "Draft before you watch",
+        "text": "You attempt the exercise first. The walkthrough is the second thing you see, never the first. That order is where the learning happens."
+      },
+      {
+        "title": "Model answers, not model students",
+        "text": "Every exercise ships with the draft we would file and the reasoning behind each paragraph. Compare, then fix yours. No grades, no leaderboards."
+      },
+      {
+        "title": "Current, or gone",
+        "text": "When a rule, a form or Registry practice changes, the lesson is re-recorded within the month or pulled. Nothing here is from 2019."
+      }
+    ]
+  }
+}

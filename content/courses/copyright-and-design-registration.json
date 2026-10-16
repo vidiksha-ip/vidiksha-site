@@ -1,0 +1,53 @@
+{
+  "order": 4,
+  "title": "Copyright and Design Registration",
+  "subtitle": "File a copyright application on Form XIV, clear the discrepancy letter, and register a design that survives a novelty objection.",
+  "area": "Copyright",
+  "level": "Beginner",
+  "duration": "About 9 hours",
+  "price": 4999,
+  "enrollUrl": "https://vidiksha.in/enrol/copyright-and-design-registration",
+  "summary": "The two filings everyone assumes are easy, until the discrepancy letter or the novelty objection arrives. Six modules, twelve exercises, both offices covered.",
+  "outcomes": [
+    "Classify a work correctly and identify its owner before you touch the form",
+    "Prepare a Form XIV with a Statement of Particulars that does not invite a discrepancy",
+    "Obtain and file the Section 45 search certificate for artistic works used as labels",
+    "Answer a discrepancy letter inside the thirty-day window",
+    "Assess whether a product shape is registrable as a design, and what prior publication kills it",
+    "Prepare a design application with correct representations, Locarno class and statement of novelty",
+    "Respond to a novelty objection, and know when to switch strategy to a shape mark instead"
+  ],
+  "about": [
+    "Copyright and design registration are the filings most often handed to the newest person in the room, on the theory that they are simple. They are simple until the Copyright Office sends a discrepancy letter with thirty days to reply, or the Design Wing objects that your representations show two designs, not one.",
+    "This course covers both offices end to end, on real applications, discrepancy letters and examination reports. It also covers the question that sits between them and trademark law: for a product shape, which protection do you actually want, and in what order?",
+    "It is our shortest course and the one we recommend starting with if you are new to filings."
+  ],
+  "modules": [
+    { "title": "Copyright basics that matter at the office", "lessons": ["What is registrable, and why registration still matters", "Works, authors and owners: getting the applicant right", "Exercise: classify eight works and identify the owner of each"] },
+    { "title": "Filing on Form XIV", "lessons": ["Form XIV, field by field, with the Statement of Particulars", "Software: source code extracts and the literary-work question", "Artistic works used as labels: the Section 45 search certificate", "Exercise: prepare a Form XIV for a mobile app"] },
+    { "title": "Discrepancies and objections", "lessons": ["The thirty-day discrepancy letter and how to answer it", "Third-party objections and the hearing", "Exercise: respond to a discrepancy letter on an artistic work"] },
+    { "title": "Design law in one hour", "lessons": ["What a design protects, and what it does not", "Novelty, originality and prior publication", "Exercise: assess five products for registrability"] },
+    { "title": "Filing a design application", "lessons": ["Form 1, representations and Locarno classification", "Statement of novelty and disclaimers", "Multiple embodiments and sets", "Exercise: prepare a design application for a consumer product"] },
+    { "title": "Examination and after", "lessons": ["Responding to objections: novelty and representation defects", "Cancellation petitions", "Design versus trademark versus copyright for product shape", "Exercise: respond to a novelty objection"] }
+  ],
+  "includes": [
+    "12 drafting exercises with model answers",
+    "Form XIV and Statement of Particulars templates",
+    "Discrepancy reply template",
+    "Design representation checklist and Locarno quick reference",
+    "Shape protection decision tree",
+    "Lifetime access and updates"
+  ],
+  "whoFor": [
+    "Paralegals, trainees and first-year associates handling filings",
+    "Founders in consumer products, media, software and fashion",
+    "Trademark practitioners who get asked about designs and do not want to guess"
+  ],
+  "notFor": [
+    "You want copyright litigation or fair-dealing doctrine",
+    "You are already filing designs weekly without objections"
+  ],
+  "faq": [
+    { "q": "Does it cover international design filings?", "a": "Hague system filings are mentioned, with a comparison of what changes. The drafting work is Indian." }
+  ]
+}

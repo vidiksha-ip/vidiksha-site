@@ -1,0 +1,58 @@
+{
+  "order": 3,
+  "title": "IP Licensing and Contracts",
+  "subtitle": "Draft, negotiate and close the agreements that make IP worth money: trademark licences, technology and software licences, assignments, and the clauses that decide every dispute.",
+  "area": "Licensing",
+  "level": "Intermediate",
+  "duration": "About 14 hours",
+  "price": 9999,
+  "enrollUrl": "https://vidiksha.in/enrol/ip-licensing-and-contracts",
+  "summary": "Seven modules built around real licences, with a negotiation simulation played from both sides. You leave with a clause bank you have drafted yourself.",
+  "outcomes": [
+    "Write a due diligence memo on an IP portfolio that tells the client what they are actually buying",
+    "Draft a grant clause that gives away exactly what was agreed and nothing more",
+    "Draft a trademark licence with quality-control provisions that will hold up in India",
+    "Separate a software licence from a SaaS subscription and draft the IP clauses for each",
+    "Structure and draft a royalty schedule, with audit rights that get used",
+    "Draft a copyright assignment that satisfies Section 19 and an employee IP clause that covers the gap the statute leaves",
+    "Negotiate the ten clauses that are always negotiated, from either side of the table"
+  ],
+  "about": [
+    "Licensing is where IP meets money, and where most of the drafting errors that end in litigation are made. This course is for the lawyer who has to turn a term sheet into a signed agreement and the founder who has to read what comes back.",
+    "You will work with six real agreements: a food franchise, a pharma technology transfer, a SaaS contract, a brand licence for a celebrity venture, a software assignment and a cross-border patent licence. Each exercise asks you to draft or redraft a clause before you see ours.",
+    "The course ends with a two-sided negotiation simulation. You draft the licensor's position, then the licensee's markup, then the compromise. Most students report that this module alone changed how they read contracts."
+  ],
+  "modules": [
+    { "title": "What is actually being licensed", "lessons": ["Identifying the IP: registered, unregistered, pending and know-how", "Due diligence: chain of title, encumbrances, recordals", "Exercise: diligence memo on a brand portfolio"] },
+    { "title": "Anatomy of a licence", "lessons": ["The grant clause: scope, territory, exclusivity, field of use, sub-licensing", "Term, renewal and termination triggers", "Representations, warranties and the indemnity trade-off", "Exercise: redraft a grant clause that gives away too much"] },
+    { "title": "Trademark licences", "lessons": ["Quality control: why it is not optional in India", "Permitted use and registered-user recordal", "Franchise agreements as trademark licences in disguise", "Exercise: draft a brand licence for a food franchise"] },
+    { "title": "Technology and software licences", "lessons": ["Patent licences: improvements, grant-backs and field restrictions", "Software: licence versus SaaS subscription, source escrow, open-source audits", "Know-how and confidentiality that survives termination", "Exercise: draft the IP clauses for a SaaS agreement"] },
+    { "title": "Money", "lessons": ["Royalty structures: running, minimum, lump-sum, milestone", "Audit rights that get used", "Withholding tax, GST and the cross-border wrinkle", "Exercise: model and draft a royalty schedule"] },
+    { "title": "Assignments and employee IP", "lessons": ["Assignment formalities under Section 19 of the Copyright Act", "Employee and contractor IP: what the default actually is", "Moral rights and the waiver question", "Exercise: draft an assignment and a contractor IP clause"] },
+    { "title": "Negotiation", "lessons": ["The ten clauses that are always negotiated, and the positions on each", "Reading the other side's markup", "Simulation: a brand licence negotiated from both sides", "Exercise: produce the final agreed draft with a cover note"] }
+  ],
+  "includes": [
+    "16 drafting exercises with model answers",
+    "Six real agreements, anonymised and annotated",
+    "Clause bank: grant, quality control, royalty, audit, termination, assignment",
+    "Negotiation simulation with positions for both sides",
+    "Due diligence checklist",
+    "Monthly live drafting clinic, replays included",
+    "Lifetime access and updates"
+  ],
+  "whoFor": [
+    "Transactional lawyers who have been handed their first licence",
+    "In-house counsel at brand, pharma and technology companies",
+    "Founders negotiating with distributors, franchisees or investors",
+    "IP prosecution lawyers moving into transactional work"
+  ],
+  "notFor": [
+    "You want contract law theory rather than drafting",
+    "You only need an NDA; there are free ones",
+    "You need US or EU-governed templates; this is Indian law throughout"
+  ],
+  "faq": [
+    { "q": "Are the templates editable?", "a": "Yes. Every template is a Word document you can adapt. They are starting points, not substitutes for judgement." },
+    { "q": "Is there a module on open source?", "a": "Open-source audits are covered inside the software module. A dedicated open-source compliance course is planned for 2027." }
+  ]
+}

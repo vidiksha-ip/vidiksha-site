@@ -1,0 +1,80 @@
+{
+  "order": 1,
+  "featured": true,
+  "title": "Trademark Prosecution in Practice",
+  "subtitle": "Ten recorded sessions that take one mark from the first search to the hearing notice: search reports, risk calls, examination report responses and written submissions, drafted the way the Registry expects them.",
+  "area": "Trademark",
+  "level": "Beginner to intermediate",
+  "duration": "20 hours",
+  "unit": "sessions",
+  "unitNote": "2 hours each, recorded",
+  "price": 7999,
+  "enrollUrl": "https://vidiksha.in/enrol/trademark-prosecution-in-practice",
+  "summary": "The complete prosecution cycle in ten two-hour sessions, all recorded. Half the course is the pre-filing search most juniors are never taught properly; the other half is the examination report, the written submission and the hearing. Ten practice exercises, email support throughout, and a community of IP professionals.",
+  "outcomes": [
+    "Classify a proposed mark and predict its Section 9 and Section 11 exposure before anyone files",
+    "Build search strings that find phonetic, visual and transliterated variants the plain search misses",
+    "Prepare a complete pre-filing search report with a risk opinion a client can act on",
+    "Run dilution, proprietor and WIPO Global Brand Database searches, and know when transborder reputation matters",
+    "Read a Registry examination report in minutes and choose the right route for each objection",
+    "Draft a response to a Section 9 or Section 11 objection with the evidence index to back it",
+    "Prepare written submissions and a hearing file that survive the hearing officer's questions",
+    "Keep a prosecution docket clean: deadlines, file hygiene and the records the Registry will ask for"
+  ],
+  "about": [
+    "Most trademark training starts at the examination report. This course starts earlier, where the real decisions are made: the search. Six of the ten sessions are about finding what is already on the Register and on the market, reading it under Sections 9, 11 and 17, and writing an opinion that tells the client whether to file, change the mark, or walk away.",
+    "The second half is prosecution proper. You read real Registry examination reports, choose the route for each objection, draft the response, and then prepare the written submission and hearing file for the matters that are not waived. Two sessions are pure demonstration: a search report and a response drafted live, start to finish, and a final walk-through of one mark from the first search to the hearing notice.",
+    "Every session is recorded, and the recordings stay open to you for two months from the date you register: long enough to work through all ten at a session a week with time to spare, and to return to the parts you need on a live matter. Ten practice exercises, one per session, come with model answers. Questions go by email and are answered by the people who teach the course. Enrolling also places you in the VIDIKSHA community of IP professionals, where practitioners compare notes on real objections and Registry practice.",
+    "You also receive the IP Prosecution Kit at your doorstep: the Vidiksha Trademark Prosecution in Practice book, the prosecution and filing checklists, and the sample drafts the course is built around, printed, so they are on your desk when a real examination report lands."
+  ],
+  "modules": [
+    { "title": "Basics of trademark law in India", "lessons": ["What a trademark protects, and what it does not", "Kinds of marks: word, device, composite, shape, colour, sound, collective and certification marks", "Section 9: the absolute grounds, limb by limb", "Section 11: the relative grounds and the earlier mark", "Section 17: composite marks, disclaimers and the exclusive right to the whole", "Practice exercise 1: classify eight proposed marks and flag the section each will meet"] },
+    { "title": "Pre-filing search I: the report and the Section 9 analysis", "lessons": ["Anatomy of a trademark search report and what the client actually reads", "Section 9 analysis of the proposed mark: descriptive, laudatory, customary, non-distinctive", "Search strings: truncation, phonetic equivalents, transliteration and spelling variants", "Reading similar marks on the Register: status, class, specification and proprietor", "Prosecution hygiene: file naming, docket entries, deadlines and the records to keep from day one", "Practice exercise 2: write the search strings and Section 9 note for a given mark"] },
+    { "title": "Pre-filing search II: Section 11, common law and the internet", "lessons": ["Section 11 analysis against cited marks: visual, phonetic and conceptual comparison", "Goods, trade channels and the 'same description' question", "Common-law rights: unregistered marks, prior use and passing off exposure", "Internet search for high-risk citations: marketplaces, domains, social media, company names", "Weighing the citations: which ones block, which ones can be designed around", "Practice exercise 3: Section 11 and common-law analysis for three cited marks"] },
+    { "title": "Pre-filing search demonstration: the full report", "lessons": ["A real brief, worked live from first search to signed opinion", "Structuring the report: findings, risk table, recommendation, next steps", "Phrasing a risk opinion a client can act on without a second call", "Practice exercise 4: prepare a complete search report on a mark of your choice"] },
+    { "title": "Dilution search and proprietor search", "lessons": ["Well-known marks and dilution under Section 11(2): when dissimilar goods still block", "Running a dilution search and reading the well-known marks list", "Proprietor search: mapping an opponent's or client's whole portfolio", "Spotting house marks, families of marks and abandoned applications", "Practice exercise 5: dilution and proprietor search for a consumer brand"] },
+    { "title": "WIPO Global Brand Database and transborder reputation", "lessons": ["Searching the WIPO Global Brand Database: Madrid designations, national collections, image search", "Marks designating India under the Madrid Protocol and what they mean for your search", "Transborder reputation: the doctrine, the evidence courts have accepted, and how to search for it", "Writing the international section of a search report", "Practice exercise 6: international search and transborder reputation note"] },
+    { "title": "Examination reports and responses", "lessons": ["Anatomy of a Registry examination report and where the real objection hides", "Formal objections, cleared in a sentence", "Section 9 objections: inherent distinctiveness or acquired distinctiveness, and the evidence each needs", "Section 11 objections: comparing marks and goods the way the Registry does, consents and limitations", "Structure of the response and the one-month deadline", "Practice exercise 7: draft a full response to a combined Section 9 and Section 11 report"] },
+    { "title": "Written submissions and hearing notices", "lessons": ["From hearing notice to hearing day: timeline and paperwork", "Written submissions: what to concede, what to argue, what to annex", "Preparing the hearing file and the two-minute opening", "What hearing officers ask, and what they decide on", "Adjournments, review and what happens after refusal", "Practice exercise 8: written submissions for a Section 11 hearing"] },
+    { "title": "Demonstration: examination report response and written submissions", "lessons": ["A real examination report answered live, paragraph by paragraph", "Building the evidence index and the affidavit of use on screen", "The written submission for the same matter, drafted live", "Practice exercise 9: respond to a new examination report using the demonstrated method"] },
+    { "title": "Full walk-through: from pre-filing to hearing notice", "lessons": ["One mark, end to end: search, opinion, filing, examination report, response, hearing", "Where files go wrong, and the checkpoints that catch it", "Your prosecution toolkit: the templates, checklists and docket you leave with", "Practice exercise 10: run the full cycle on a mark and submit the file for review"] }
+  ],
+  "access": "Recording access for 2 months from the date of registration",
+  "includes": [
+    "10 recorded sessions, 2 hours each, available for 2 months from registration",
+    "10 practice exercises with model answers",
+    "Email support from the instructors throughout the course",
+    "Membership of the VIDIKSHA community of IP professionals",
+    "IP Prosecution Kit delivered to your doorstep",
+    "Certificate on completion of all ten exercises"
+  ],
+  "kit": {
+    "title": "IP Prosecution Kit",
+    "intro": "A physical kit, couriered to the address you give at registration, so the references you need at your desk are on paper and not in a tab.",
+    "items": [
+      "Vidiksha Trademark Prosecution in Practice book",
+      "Prosecution checklist",
+      "Checklist for filing a trademark",
+      "Sample drafts: examination report responses, written submissions, Section 9 clearance, Section 11 clearance and common-law clearance"
+    ]
+  },
+  "whoFor": [
+    "Junior associates handling trademark searches and examination reports for the first time",
+    "In-house counsel who review outside counsel's search reports and prosecution work",
+    "Founders who want to clear and file their own marks with open eyes",
+    "Final-year law students who want a job that involves this"
+  ],
+  "notFor": [
+    "You want a survey of trademark doctrine",
+    "You have never opened the Trade Marks Act and want to start there",
+    "You do only litigation and never touch the Registry"
+  ],
+  "faq": [
+    { "q": "Are the sessions live or recorded?", "a": "Recorded. All ten sessions are available from the day you enrol, so you can watch at your own pace and go back to a session when a live matter needs it. Questions go by email and are answered by the instructors." },
+    { "q": "How long do I have access to the recordings?", "a": "Two months from the date of registration. That is comfortably enough for the ten sessions and the exercises; if you need longer for a good reason, write to us before the period ends." },
+    { "q": "What is in the IP Prosecution Kit, and how does it reach me?", "a": "The Vidiksha Trademark Prosecution in Practice book, the prosecution checklist, the checklist for filing a trademark, and printed sample drafts for examination report responses, written submissions, and Section 9, Section 11 and common-law clearances. It is couriered to the address you give at registration, within India." },
+    { "q": "What is the community?", "a": "A private group of VIDIKSHA members who practise IP: associates, in-house counsel, agents and founders. It is where people compare notes on real objections, hearing experiences and Registry practice, and where we post updates when practice changes." },
+    { "q": "Which Registry practice does this follow?", "a": "Indian practice under the Trade Marks Act, 1999 and the Trade Marks Rules, 2017, as applied by the Registry today. Sessions are re-recorded when practice changes." },
+    { "q": "Are the documents real?", "a": "Yes. Search reports, examination reports, responses, written submissions and hearing records from actual matters, with client and mark details altered where needed." }
+  ]
+}
