@@ -335,10 +335,10 @@
         e.preventDefault(); var f = L.formData(form), st = $('#fb-st');
         if (words(f.feedback) < 100) { st.textContent = 'Please write at least 100 words; you have ' + words(f.feedback) + '.'; st.className = 'status is-error'; return; }
         if (!/^https?:\/\/([a-z0-9-]+\.)?linkedin\.com\//i.test(f.linkedin_url)) { st.textContent = 'Your LinkedIn profile link is required (it starts with https://www.linkedin.com/in/).'; st.className = 'status is-error'; return; }
-        if (!f.consent_publish) { st.textContent = 'Please tick the consent box. Feedback is published with your name and LinkedIn profile; without consent it cannot be submitted.'; st.className = 'status is-error'; return; }
+        if (!f.consent_publish) { st.textContent = 'Please provide consent to publish the feedback on the website.'; st.className = 'status is-error'; return; }
         st.textContent = 'Saving…'; st.className = 'status';
         sb.from('training_feedback').insert({ session_slug: slug, user_id: session.user.id, rating: Number(f.rating), feedback: f.feedback, linkedin_url: f.linkedin_url, consent_publish: true }).then(function (x) {
-          if (x.error) { st.textContent = L.err(x.error); st.className = 'status is-error'; return; }
+          if (x.error) { var m = L.err(x.error); st.textContent = /training_feedback_consent/.test(m) ? 'Please provide consent to publish the feedback on the website.' : /training_feedback_min_words/.test(m) ? 'Please write at least 100 words.' : /training_feedback_linkedin/.test(m) ? 'Your LinkedIn profile link is required.' : m; st.className = 'status is-error'; return; }
           logEvent('training_feedback', { session: slug }); L.toast('Thank you. Your certificate is unlocked.', 'ok'); trainingSessionPage(slug);
         });
       });
