@@ -6,58 +6,70 @@ export interface CertificateData {
   sessionDate: Date;
   durationMin: number;
   issuedAt: Date;
-  issuer: string;      // legal name
+  issuer: string;      // "Vidiksha IP"
   website: string;
 }
 
 const latin1 = (s: string) => s.replace(/₹/g, "Rs. ").replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/–|—/g, "-").replace(/[^\x20-\x7E\xA0-\xFF]/g, "?");
 const esc = (s: string) => latin1(s).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
-const width = (s: string, size: number, bold = false) => s.length * size * (bold ? 0.56 : 0.52);
-function wrap(s: string, size: number, max: number, bold = false) {
+// Approximate glyph widths (Helvetica ~0.52 em, bold ~0.56, Times ~0.47) plus any letter spacing.
+const width = (s: string, size: number, font: "F1" | "F2" | "F3", spacing = 0) => s.length * size * (font === "F2" ? 0.56 : font === "F3" ? 0.47 : 0.52) + Math.max(0, s.length - 1) * spacing;
+function wrap(s: string, size: number, max: number, font: "F1" | "F2" | "F3") {
   const words = latin1(s).split(/\s+/); const lines: string[] = []; let cur = "";
-  for (const w of words) { const n = cur ? cur + " " + w : w; if (width(n, size, bold) > max && cur) { lines.push(cur); cur = w; } else cur = n; }
+  for (const w of words) { const n = cur ? cur + " " + w : w; if (width(n, size, font) > max && cur) { lines.push(cur); cur = w; } else cur = n; }
   if (cur) lines.push(cur); return lines;
 }
 const fmtDate = (d: Date) => d.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kolkata" });
+const fmtLength = (min: number) => min < 60 ? `${min} minutes` : (min % 60 === 0 ? `${min / 60} hour${min === 60 ? "" : "s"}` : `${Math.floor(min / 60)} h ${min % 60} min`);
 
 export function buildCertificatePdf(d: CertificateData): Uint8Array {
   const W = 841.89, H = 595.28; // A4 landscape
   const ops: string[] = [];
-  const text = (x: number, y: number, s: string, size: number, font: "F1" | "F2" | "F3", color = "0 0 0") => ops.push(`BT /${font} ${size} Tf ${color} rg 1 0 0 1 ${x.toFixed(2)} ${(H - y).toFixed(2)} Tm (${esc(s)}) Tj ET`);
-  const center = (y: number, s: string, size: number, font: "F1" | "F2" | "F3", color = "0 0 0") => text((W - width(latin1(s), size, font === "F2")) / 2, y, s, size, font, color);
+  const text = (x: number, y: number, s: string, size: number, font: "F1" | "F2" | "F3", color = "0 0 0", spacing = 0) => ops.push(`BT /${font} ${size} Tf ${spacing} Tc ${color} rg 1 0 0 1 ${x.toFixed(2)} ${(H - y).toFixed(2)} Tm (${esc(s)}) Tj ET`);
+  const center = (y: number, s: string, size: number, font: "F1" | "F2" | "F3", color = "0 0 0", spacing = 0) => text((W - width(latin1(s), size, font, spacing)) / 2, y, s, size, font, color, spacing);
   const line = (x1: number, y1: number, x2: number, y2: number, w: number, color: string) => ops.push(`${color} RG ${w} w ${x1.toFixed(2)} ${(H - y1).toFixed(2)} m ${x2.toFixed(2)} ${(H - y2).toFixed(2)} l S`);
   const rect = (x: number, y: number, w: number, h: number, fill: string) => ops.push(`${fill} rg ${x.toFixed(2)} ${(H - y - h).toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re f`);
+  const frame = (inset: number, w: number, color: string) => ops.push(`${color} RG ${w} w ${inset.toFixed(2)} ${inset.toFixed(2)} ${(W - 2 * inset).toFixed(2)} ${(H - 2 * inset).toFixed(2)} re S`);
 
-  const ink = "0.06 0.055 0.05", green = "0.11 0.29 0.22", grey = "0.42 0.41 0.39";
-  rect(0, 0, W, H, "0.98 0.98 0.976");
-  rect(0, 0, 14, H, green);
-  line(48, 44, W - 48, 44, 0.8, "0.75 0.75 0.73");
-  line(48, H - 44, W - 48, H - 44, 0.8, "0.75 0.75 0.73");
+  const ink = "0.06 0.055 0.05", green = "0.11 0.29 0.22", grey = "0.42 0.41 0.39", cream = "0.985 0.98 0.97";
+  rect(0, 0, W, H, cream);
+  frame(26, 1.4, green);
+  frame(33, 0.5, green);
+  // corner accents
+  for (const [cx, cy] of [[33, 33], [W - 33, 33], [33, H - 33], [W - 33, H - 33]] as [number, number][]) {
+    rect(cx - 3, H - cy - 3, 6, 6, green);
+  }
 
-  text(60, 80, "VIDIKSHA", 22, "F3", ink);
-  text(60, 96, "IP law, learned by doing", 9, "F1", grey);
-  const noW = width(d.certificateNo, 9); text(W - 60 - noW, 80, d.certificateNo, 9, "F1", grey);
+  // Wordmark
+  center(84, "VIDIKSHA IP", 24, "F3", ink, 6);
+  center(104, "IP law, learned by doing", 9.5, "F1", grey, 0.6);
+  line(W / 2 - 60, 118, W / 2 + 60, 118, 0.6, green);
 
-  center(170, "CERTIFICATE OF PARTICIPATION", 13, "F1", green);
-  center(215, "This is to certify that", 13, "F1", grey);
-  const nameSize = Math.min(34, Math.max(20, 34 * 560 / Math.max(560, width(d.name, 34, false))));
-  center(262, d.name, nameSize, "F3", ink);
-  line(W / 2 - 180, 276, W / 2 + 180, 276, 0.8, green);
-  center(306, "participated in the live training session", 13, "F1", grey);
-  const tl = wrap(d.sessionTitle, 18, 640, true);
+  // Heading
+  center(166, "CERTIFICATE OF PARTICIPATION", 12.5, "F1", green, 3.2);
+  center(206, "This is to certify that", 13, "F3", grey);
+
+  // Name
+  const nameSize = Math.min(40, Math.max(22, 40 * 560 / Math.max(560, width(d.name, 40, "F3"))));
+  center(258, d.name, nameSize, "F3", ink);
+  const nw = Math.min(460, width(latin1(d.name), nameSize, "F3") + 40);
+  line(W / 2 - nw / 2, 272, W / 2 + nw / 2, 272, 0.8, green);
+
+  center(306, "has participated in the live training session", 13, "F3", grey);
+  const tl = wrap(d.sessionTitle, 19, 620, "F2");
   let y = 340;
-  for (const l of tl) { center(y, l, 18, "F2", ink); y += 24; }
-  const hours = Math.round(d.durationMin / 60 * 10) / 10;
-  center(y + 10, `held on ${fmtDate(d.sessionDate)} (${hours} hour${hours === 1 ? "" : "s"}, online)`, 12, "F1", grey);
-  center(y + 30, "conducted by " + d.issuer + ", with real documents and live drafting.", 11, "F1", grey);
+  for (const l of tl) { center(y, l, 19, "F2", ink); y += 25; }
+  center(y + 10, `held online on ${fmtDate(d.sessionDate)}  ·  ${fmtLength(d.durationMin)}`, 12, "F1", grey);
+  center(y + 30, "Real documents, live drafting, questions answered.", 11, "F3", grey);
 
-  text(60, H - 88, "Issued " + fmtDate(d.issuedAt), 9.5, "F1", grey);
-  text(60, H - 72, d.website + "  ·  team@vidiksha.in", 9.5, "F1", grey);
-  const sig = "For " + d.issuer;
-  text(W - 60 - width(sig, 10), H - 96, sig, 10, "F1", ink);
-  line(W - 260, H - 108, W - 60, H - 108, 0.6, "0.5 0.5 0.48");
-  const auth = "Authorised signatory";
-  text(W - 60 - width(auth, 9), H - 72, auth, 9, "F1", grey);
+  // Foot: certificate number, issue date, issuer
+  const fy = H - 78;
+  line(W / 2 - 140, fy - 22, W / 2 + 140, fy - 22, 0.5, "0.75 0.75 0.73");
+  center(fy, d.issuer, 13, "F3", ink, 1.5);
+  center(fy + 18, `${d.website}  ·  team@vidiksha.in`, 9, "F1", grey);
+  text(52, fy + 6, "Certificate no. " + d.certificateNo, 8.5, "F1", grey);
+  const issued = "Issued " + fmtDate(d.issuedAt);
+  text(W - 52 - width(issued, 8.5, "F1"), fy + 6, issued, 8.5, "F1", grey);
 
   return pdf(ops.join("\n"), W, H);
 }

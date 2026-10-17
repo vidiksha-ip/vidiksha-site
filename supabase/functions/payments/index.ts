@@ -18,7 +18,7 @@
 //   PORTAL_URL                leave unset until the learning portal is live; then https://portal.vidiksha.in
 //   SITE_URL                  default https://vidiksha.in
 //   ACCESS_NOTE               the "what happens next" line about recordings (default below)
-//   INVOICE_SELLER_NAME       default "Vidiksha Learning LLP"
+//   INVOICE_SELLER_NAME       default "Vidiksha IP"
 //   INVOICE_SELLER_ADDRESS    registered address printed on the invoice
 //   INVOICE_SELLER_STATE      state of the registered address (decides CGST+SGST vs IGST)
 //   INVOICE_GSTIN             leave empty until registered; then the PDF becomes a tax invoice with the GST break-up
@@ -43,7 +43,7 @@ const PORTAL_URL = env("PORTAL_URL"), SITE_URL = env("SITE_URL", "https://vidiks
 const ACCESS_NOTE = env("ACCESS_NOTE", PORTAL_URL
   ? "Your recorded sessions are open on the learning portal for 2 months from today. Watch them in order; each ends with a practice exercise."
   : "Your recorded sessions will be opened to you on the learning portal, and we will email you the moment they are ready. Your 2 months of access start from that day, not today.");
-const SELLER = { name: env("INVOICE_SELLER_NAME", "Vidiksha Learning LLP"), address: env("INVOICE_SELLER_ADDRESS", "India"), state: env("INVOICE_SELLER_STATE"), gstin: env("INVOICE_GSTIN"), email: MAIL_REPLY_TO, website: SITE_URL.replace(/^https?:\/\//, "") };
+const SELLER = { name: env("INVOICE_SELLER_NAME", "Vidiksha IP"), address: env("INVOICE_SELLER_ADDRESS", "India"), state: env("INVOICE_SELLER_STATE"), gstin: env("INVOICE_GSTIN"), email: MAIL_REPLY_TO, website: SITE_URL.replace(/^https?:\/\//, "") };
 const ALLOWED_ORIGINS = env("ALLOWED_ORIGINS", "https://vidiksha.in,https://www.vidiksha.in,https://portal.vidiksha.in,https://control.vidiksha.in,http://portal.vidiksha.in,http://control.vidiksha.in,http://localhost:4321,http://localhost:4322,http://localhost:4323").split(",").map((s) => s.trim());
 
 type Json = Record<string, unknown>;

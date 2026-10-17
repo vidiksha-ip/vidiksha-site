@@ -55,7 +55,7 @@ export function welcomeHtml(m: WelcomeMail) {
       </td></tr>
 
       <tr><td style="padding:24px 36px 0;font-size:14px;line-height:1.6;color:#33312c;">Questions go to <a href="mailto:team@vidiksha.in" style="color:#1d4a39;">team@vidiksha.in</a>; reply to this email and it reaches the same inbox.</td></tr>
-      <tr><td style="padding:24px 36px 36px;font-size:13px;line-height:1.6;color:#6f6c66;border-top:1px solid #e4e2dd;">Vidiksha Learning LLP. Nothing on VIDIKSHA is legal advice.</td></tr>
+      <tr><td style="padding:24px 36px 36px;font-size:13px;line-height:1.6;color:#6f6c66;border-top:1px solid #e4e2dd;">Vidiksha IP. Nothing on VIDIKSHA is legal advice.</td></tr>
     </table>
   </td></tr>
 </table>`;
@@ -65,7 +65,7 @@ export function welcomeText(m: WelcomeMail) {
   const login = m.account.status === "created"
     ? `Your VIDIKSHA account has been created.\nLogin email: ${m.account.email}\nPassword: ${m.account.password}\nPlease change the password after your first login. Forgotten it? Write to team@vidiksha.in.`
     : `You already have a VIDIKSHA account under ${m.account.email}; this course has been added to it. Forgotten the password? Write to team@vidiksha.in.`;
-  return `Welcome to ${m.course}.\n\nYour payment of INR ${m.amountInr.toLocaleString("en-IN")} has been received. Invoice ${m.invoiceNo} (Razorpay payment ${m.paymentId}) is attached as a PDF.\n\n${login}\n\n${m.portalUrl ? "Learning portal: " + m.portalUrl : "The learning portal at portal.vidiksha.in opens shortly; the same login will work there."}\nCase law repository (free, no login): ${m.researchUrl}\n\n${m.accessNote}\nYour community invitation follows within one working day.${m.kit ? "\nThe IP Prosecution Kit is couriered to your address within 7 working days." : ""}\n\nQuestions: team@vidiksha.in\nVidiksha Learning LLP. Nothing on VIDIKSHA is legal advice.`;
+  return `Welcome to ${m.course}.\n\nYour payment of INR ${m.amountInr.toLocaleString("en-IN")} has been received. Invoice ${m.invoiceNo} (Razorpay payment ${m.paymentId}) is attached as a PDF.\n\n${login}\n\n${m.portalUrl ? "Learning portal: " + m.portalUrl : "The learning portal at portal.vidiksha.in opens shortly; the same login will work there."}\nCase law repository (free, no login): ${m.researchUrl}\n\n${m.accessNote}\nYour community invitation follows within one working day.${m.kit ? "\nThe IP Prosecution Kit is couriered to your address within 7 working days." : ""}\n\nQuestions: team@vidiksha.in\nVidiksha IP. Nothing on VIDIKSHA is legal advice.`;
 }
 
 /** Sends through Resend. Returns the provider message id, or throws. */

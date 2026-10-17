@@ -1,7 +1,7 @@
 {
   "_note": "Site-wide settings and copy. The publishable Supabase key and the sheet webhook are public by design; the secret key is never stored here.",
   "name": "VIDIKSHA",
-  "legalName": "Vidiksha Learning LLP",
+  "legalName": "Vidiksha IP",
   "tagline": "IP law is learned by doing",
   "description": "VIDIKSHA teaches the practice of intellectual property law in India: drafting objection replies, filing patents, answering examination reports and negotiating licences. Self-paced courses, live training sessions and a practical blog.",
   "url": "https://vidiksha.in",
