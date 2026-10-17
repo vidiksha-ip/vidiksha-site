@@ -36,7 +36,7 @@ p { margin: 0 0 1rem; }
 .user-chip b { color: #fff; display: block; font-weight: 500; }
 .user-chip button { background: none; border: 0; color: #8f8b84; cursor: pointer; padding: 0; font: inherit; font-size: 0.8rem; }
 .user-chip button:hover { color: #fff; }
-main { padding: 2.25rem 2.5rem 4rem; max-width: 1180px; width: 100%; }
+main { padding: 2rem 2.25rem 4rem; max-width: none; width: 100%; min-width: 0; }
 .topbar { display: none; }
 @media (max-width: 860px) {
   .shell { grid-template-columns: 1fr; }
@@ -88,7 +88,7 @@ main { padding: 2.25rem 2.5rem 4rem; max-width: 1180px; width: 100%; }
 .tick.is-done { background: var(--accent); border-color: var(--accent); color: #fff; }
 .table-wrap { overflow: visible; background: var(--surface); border: 1px solid var(--line); }
 table { border-collapse: collapse; width: 100%; font-size: 0.9rem; table-layout: auto; }
-th, td { text-align: left; padding: 0.65rem 0.85rem; border-bottom: 1px solid var(--line); vertical-align: top; white-space: normal; overflow-wrap: anywhere; }
+th, td { text-align: left; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--line); vertical-align: top; white-space: normal; overflow-wrap: anywhere; }
 td.nowrap, th.nowrap { white-space: nowrap; }
 td .pill { white-space: nowrap; }
 th { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 500; background: #f4f3f0; }
@@ -169,8 +169,11 @@ input[type=file] { font: inherit; font-size: 0.9rem; }
 .tabs a { padding: 0.5rem 0.9rem; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .tabs a.is-active { color: var(--text); border-bottom-color: var(--text); }
 .tabs a:hover { text-decoration: none; color: var(--text); }
-.toolbar { display: flex; gap: 0.6rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; }
-.toolbar input[type=search] { max-width: 320px; }
+.toolbar { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
+.toolbar input[type=search] { flex: 1 1 220px; min-width: 160px; max-width: 320px; }
+.toolbar select { flex: 0 0 auto; min-width: 0; width: auto; font-size: 0.9rem; padding: 0.5rem 0.6rem; }
+.toolbar .btn { flex: 0 0 auto; }
+@media (max-width: 860px) { .toolbar { flex-wrap: wrap; overflow: visible; } }
 .kv { display: grid; grid-template-columns: 160px 1fr; gap: 0.35rem 1rem; font-size: 0.92rem; }
 .kv dt { color: var(--muted); }
 .kv dd { margin: 0; }
@@ -212,8 +215,6 @@ dialog h2 { margin-bottom: 1rem; }
 .covers li { padding: 0.15rem 0; }
 @media (max-width: 640px) { .session { grid-template-columns: 2.4rem 1fr; } .session-action { grid-column: 2; } }
 
-/* toolbar controls keep their natural width */
-.toolbar select { width: auto; min-width: 180px; }
 
 /* control panel: curriculum editor */
 .cur-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }

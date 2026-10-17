@@ -26,7 +26,7 @@
   }
 
   /* ------------------------------------------------------------ shell */
-  var NAV = [['', 'Overview'], ['students', 'Students'], ['enrolments', 'Enrolments'], ['training', 'Training sessions'], ['courses', 'Course content'], ['grading', 'Grading'], ['notices', 'Announcements'], ['messages', 'Messages'], ['blog', 'Blog posts'], ['team', 'Team']];
+  var NAV = [['', 'Overview'], ['students', 'Students'], ['enrolments', 'Enrolments'], ['invoices', 'Invoices'], ['training', 'Training sessions'], ['courses', 'Course content'], ['grading', 'Grading'], ['notices', 'Announcements'], ['messages', 'Messages'], ['blog', 'Blog posts'], ['team', 'Team']];
   function shell() {
     var name = me.full_name || session.user.email;
     app.innerHTML = '<div class="shell"><aside class="sidebar"><a class="brand" href="#/">VIDIKSHA<small>Control panel</small></a><nav class="nav" id="nav"></nav><div class="nav-sep"></div><nav class="nav"><a href="' + L.cfg.portalUrl + '" target="_blank" rel="noopener">Learning portal ↗</a><a href="' + L.cfg.siteUrl + '" target="_blank" rel="noopener">vidiksha.in ↗</a><a href="https://supabase.com/dashboard/project/euvlsarftingglxvsuzq" target="_blank" rel="noopener">Supabase ↗</a></nav>' +
@@ -226,6 +226,43 @@
         $$('[data-del-grant]').forEach(function (b) { b.addEventListener('click', function () { if (!confirmDelete('this access grant')) return; sb.from('course_grants').delete().eq('id', b.getAttribute('data-del-grant')).then(function () { student(id); }); }); });
       });
     });
+  }
+
+  /* ------------------------------------------------------------ invoices */
+  function invoices() {
+    L.render(head('Invoices', 'Invoices', 'Every tax invoice issued for a paid course, newest first. Download opens the same PDF the buyer received.', '<button class="btn btn-ghost" id="csv">Export CSV</button>') +
+      '<div class="toolbar"><input type="search" id="q" placeholder="Search invoice, name, email, phone"><select id="course"><option value="">All courses</option>' + Object.keys(COURSES).map(function (s) { return '<option value="' + s + '">' + esc(COURSES[s]) + '</option>'; }).join('') + '</select><select id="fy"><option value="">All years</option></select></div><div id="tbl">' + L.spinner() + '</div>');
+    var rows = [];
+    function draw() {
+      var s = $('#q').value.toLowerCase(), c = $('#course').value, fy = $('#fy').value;
+      var list = rows.filter(function (r) { return (!s || [r.invoice_no, r.full_name, r.email, r.whatsapp].join(' ').toLowerCase().indexOf(s) >= 0) && (!c || r.course_slug === c) && (!fy || (r.invoice_no || '').indexOf('/' + fy + '/') >= 0); });
+      $('#tbl').innerHTML = '<p class="muted small">' + list.length + ' invoices · ' + L.fmtInr(list.reduce(function (a, r) { return a + Number(r.amount_inr); }, 0)) + '</p>' + table([
+        { label: 'S. No.', nowrap: true, html: function (r) { return String(list.indexOf(r) + 1); } },
+        { label: 'Invoice number', nowrap: true, html: function (r) { return '<strong>' + esc(r.invoice_no) + '</strong>'; } },
+        { label: 'Date', nowrap: true, get: function (r) { return L.fmtDate(r.invoice_at || r.paid_at); } },
+        { label: 'Full name', html: function (r) { return r.user_id ? '<a href="#/student/' + r.user_id + '">' + esc(r.full_name) + '</a>' : esc(r.full_name); } },
+        { label: 'Email ID', key: 'email' },
+        { label: 'Contact number', nowrap: true, key: 'whatsapp' },
+        { label: 'Course', key: 'course_title' },
+        { label: 'Amount', nowrap: true, get: function (r) { return L.fmtInr(r.amount_inr); } },
+        { label: 'Download', nowrap: true, html: function (r) { return '<button class="btn btn-ghost btn-sm" data-dl="' + esc(r.razorpay_order_id) + '" data-no="' + esc(r.invoice_no) + '">PDF</button>'; } }
+      ], list, 'No invoices yet.');
+      $$('[data-dl]').forEach(function (b) { b.addEventListener('click', function () {
+        b.disabled = true; b.textContent = '…';
+        sb.auth.getSession().then(function (s2) { return fetch(L.cfg.functionsUrl + '/payments/invoice?order=' + encodeURIComponent(b.getAttribute('data-dl')), { headers: { Authorization: 'Bearer ' + s2.data.session.access_token, apikey: L.cfg.anonKey } }); })
+          .then(function (res) { if (!res.ok) return res.json().then(function (j) { throw new Error(j.error || 'Could not prepare the invoice.'); }); return res.blob(); })
+          .then(function (blob) { var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'VIDIKSHA-invoice-' + b.getAttribute('data-no').replace(/\//g, '-') + '.pdf'; a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000); })
+          .catch(function (e) { L.toast(L.err(e), 'error'); }).then(function () { b.disabled = false; b.textContent = 'PDF'; });
+      }); });
+      $('#csv').onclick = function () { L.download('vidiksha-invoices.csv', L.csv(list, [{ label: 'S. No.', get: function (r) { return list.indexOf(r) + 1; } }, { label: 'Invoice number', key: 'invoice_no' }, { label: 'Date', get: function (r) { return L.fmtDate(r.invoice_at || r.paid_at); } }, { label: 'Full name', key: 'full_name' }, { label: 'Email', key: 'email' }, { label: 'Contact', key: 'whatsapp' }, { label: 'Course', key: 'course_title' }, { label: 'Amount (INR)', key: 'amount_inr' }, { label: 'Payment id', key: 'razorpay_payment_id' }, { label: 'Method', key: 'payment_method' }])); };
+    }
+    sb.from('course_enrolments').select('*').eq('status', 'paid').not('invoice_no', 'is', null).order('invoice_at', { ascending: false }).then(function (r) {
+      rows = r.data || [];
+      var fys = []; rows.forEach(function (x) { var m = /\/(\d\d-\d\d)\//.exec(x.invoice_no || ''); if (m && fys.indexOf(m[1]) < 0) fys.push(m[1]); });
+      $('#fy').innerHTML = '<option value="">All years</option>' + fys.map(function (f) { return '<option value="' + f + '">FY 20' + f.replace('-', '–20') + '</option>'; }).join('');
+      draw();
+    });
+    ['q', 'course', 'fy'].forEach(function (i) { $('#' + i).addEventListener('input', draw); $('#' + i).addEventListener('change', draw); });
   }
 
   /* ------------------------------------------------------------ enrolments & training */
@@ -672,7 +709,7 @@
 
   /* ------------------------------------------------------------ routing */
   var routes = L.router({
-    '': overview, 'students': students, 'student/:id': function (p) { student(p.id); }, 'enrolments': enrolments, 'training': training, 'training/:slug': function (p) { trainingSession(p.slug); },
+    '': overview, 'students': students, 'student/:id': function (p) { student(p.id); }, 'enrolments': enrolments, 'invoices': invoices, 'training': training, 'training/:slug': function (p) { trainingSession(p.slug); },
     'courses': courses, 'course/:slug': function (p, q) { course(p.slug, q); }, 'lecture/:id': function (p) { lecture(p.id); },
     'grading': grading, 'assignment/:id': function (p, q) { assignment(p.id, q); }, 'notices': notices, 'messages': messages, 'blog': blog, 'team': team
   }, function () { L.render(L.empty('Page not found.')); });

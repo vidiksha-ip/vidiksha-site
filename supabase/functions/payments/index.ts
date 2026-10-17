@@ -240,7 +240,8 @@ async function invoiceDownload(req: Request, origin: string | null) {
   const orderId = clean(new URL(req.url).searchParams.get("order"), 80);
   const rows = await db(`course_enrolments?razorpay_order_id=eq.${encodeURIComponent(orderId)}&status=eq.paid&select=*`);
   const e = rows?.[0];
-  if (!e || !(e.user_id === user.id || String(e.email).toLowerCase() === String(user.email).toLowerCase())) return json({ error: "No such invoice on your account." }, 404, origin);
+  const isStaff = !!(await db(`staff?user_id=eq.${user.id}&select=role`))?.length;
+  if (!e || !(isStaff || e.user_id === user.id || String(e.email).toLowerCase() === String(user.email).toLowerCase())) return json({ error: "No such invoice on your account." }, 404, origin);
   if (!e.invoice_no) return json({ error: "This invoice has not been numbered yet. Write to team@vidiksha.in." }, 409, origin);
   const pdf = invoicePdf(e, e.razorpay_payment_id, orderId);
   return new Response(pdf, { status: 200, headers: { ...cors(origin), "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="VIDIKSHA-invoice-${e.invoice_no.replace(/\//g, "-")}.pdf"`, "Cache-Control": "private, no-store" } });
