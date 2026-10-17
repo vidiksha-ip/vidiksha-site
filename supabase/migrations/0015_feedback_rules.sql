@@ -9,7 +9,8 @@ alter table public.training_feedback add constraint training_feedback_linkedin
   check (linkedin_url ~* '^https?://([a-z0-9-]+\.)?linkedin\.com/');
 
 -- Feedback with the participant, the session and the certificate issued for it.
-create or replace view public.training_feedback_overview with (security_invoker = true) as
+drop view if exists public.training_feedback_overview;
+create view public.training_feedback_overview with (security_invoker = true) as
 select f.*, p.full_name, p.email, p.profession, p.organisation, p.whatsapp, s.title as session_title, s.starts_at,
        r.id as registration_id, r.certificate_no, r.certificate_issued_at, r.attended
 from public.training_feedback f
