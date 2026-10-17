@@ -69,12 +69,12 @@ export function welcomeText(m: WelcomeMail) {
 }
 
 /** Sends through Resend. Returns the provider message id, or throws. */
-export async function sendMail(apiKey: string, from: string, replyTo: string, m: WelcomeMail) {
+export async function sendMail(apiKey: string, from: string, replyTo: string, m: WelcomeMail, bcc: string[] = []) {
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from, to: [m.to], reply_to: replyTo,
+      from, to: [m.to], reply_to: replyTo, bcc: bcc.length ? bcc : undefined,
       subject: `Welcome to ${m.course}: your login and invoice ${m.invoiceNo}`,
       html: welcomeHtml(m), text: welcomeText(m),
       attachments: m.pdf ? [{ filename: m.pdf.filename, content: m.pdf.base64 }] : [],

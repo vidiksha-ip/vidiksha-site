@@ -14,6 +14,7 @@
 //   RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET, SHEET_WEBHOOK_URL
 //   RESEND_API_KEY            Resend API key; without it the welcome email is skipped and logged
 //   MAIL_FROM                 default "VIDIKSHA <noreply@vidiksha.in>"      MAIL_REPLY_TO  default team@vidiksha.in
+//   MAIL_BCC                  default vidiksha.ip@gmail.com (comma-separated): blind copy of every welcome email with its invoice
 //   PORTAL_URL                leave unset until the learning portal is live; then https://portal.vidiksha.in
 //   SITE_URL                  default https://vidiksha.in
 //   ACCESS_NOTE               the "what happens next" line about recordings (default below)
@@ -37,6 +38,7 @@ const RZP_KEY_ID = env("RAZORPAY_KEY_ID"), RZP_KEY_SECRET = env("RAZORPAY_KEY_SE
 const SHEET_URL = env("SHEET_WEBHOOK_URL");
 const RESEND_KEY = env("RESEND_API_KEY");
 const MAIL_FROM = env("MAIL_FROM", "VIDIKSHA <noreply@vidiksha.in>"), MAIL_REPLY_TO = env("MAIL_REPLY_TO", "team@vidiksha.in");
+const MAIL_BCC = env("MAIL_BCC", "vidiksha.ip@gmail.com").split(",").map((s) => s.trim()).filter(Boolean);   // the team's copy of every welcome email and invoice
 const PORTAL_URL = env("PORTAL_URL"), SITE_URL = env("SITE_URL", "https://vidiksha.in");
 const ACCESS_NOTE = env("ACCESS_NOTE", PORTAL_URL
   ? "Your recorded sessions are open on the learning portal for 2 months from today. Watch them in order; each ends with a practice exercise."
@@ -197,7 +199,7 @@ async function markPaid(orderId: string, paymentId: string) {
           accessNote: ACCESS_NOTE,
           pdf: { filename: `VIDIKSHA-invoice-${e.invoice_no.replace(/\//g, "-")}.pdf`, base64: toBase64(pdf) },
         };
-        await sendMail(RESEND_KEY, MAIL_FROM, MAIL_REPLY_TO, mail);
+        await sendMail(RESEND_KEY, MAIL_FROM, MAIL_REPLY_TO, mail, MAIL_BCC);
         await patch(e.id, { welcome_sent_at: new Date().toISOString() });
         e = { ...e, welcome_sent_at: new Date().toISOString() };
       } catch (err) { fail("welcome email", err); }
