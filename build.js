@@ -53,7 +53,10 @@ function loadContent() {
     const w = readJSON(file);
     const slug = w.slug || slugify(path.basename(file, '.json'));
     // Registration happens on the site's own form unless a session names an external registration page.
-    return { ...w, slug, registerUrl: w.externalRegisterUrl || `/live-training/register/${slug}/`, isPast: new Date(w.datetime) < now };
+    const days = Array.isArray(w.days) && w.days.length ? w.days : [{ datetime: w.datetime, duration: w.duration || 180 }];
+    const last = days[days.length - 1];
+    const endsAt = new Date(new Date(last.datetime).getTime() + Number(last.duration || w.duration || 180) * 60000);
+    return { ...w, days, datetime: w.datetime || days[0].datetime, duration: w.duration || days[0].duration, slug, registerUrl: w.externalRegisterUrl || `/live-training/register/${slug}/`, isPast: endsAt < now };
   });
   const upcoming = webinars.filter((w) => !w.isPast).sort((a, b) => (a.datetime < b.datetime ? -1 : 1));
   const past = webinars.filter((w) => w.isPast).sort((a, b) => (a.datetime < b.datetime ? 1 : -1));

@@ -9,6 +9,21 @@
   function fmtDateTime(d) { if (!d) return ''; var x = new Date(d); if (isNaN(x)) return ''; return x.toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' }); }
   function fmtInr(n) { return '₹' + Number(n || 0).toLocaleString('en-IN'); }
   function until(d) { if (!d) return ''; var x = new Date(d); if (x.getFullYear() > 2200) return 'no end date'; return 'until ' + fmtDate(x); }
+  /** "25 and 26 October 2026, 4:00 pm to 6:00 pm IST" for a session's sittings; falls back to start + length. */
+  function schedule(days, startsAt, durationMin) {
+    var tz = 'Asia/Kolkata';
+    var list = ((days && days.length) ? days : [{ starts_at: startsAt, duration_min: durationMin }]).map(function (d) { return { t: new Date(d.starts_at), dur: Number(d.duration_min || durationMin || 180) }; }).filter(function (d) { return !isNaN(d.t); });
+    if (!list.length) return '';
+    var tm = function (d) { return d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: tz }); };
+    var range = function (d) { return tm(d.t) + ' to ' + tm(new Date(d.t.getTime() + d.dur * 60000)) + ' IST'; };
+    var same = list.every(function (d) { return range(d) === range(list[0]); });
+    if (list.length === 1 || !same) return list.map(function (d) { return fmtDate(d.t) + ', ' + range(d); }).join('; ');
+    var groups = [];
+    list.forEach(function (d) { var k = d.t.toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: tz }); var g = groups.filter(function (x) { return x.k === k; })[0]; if (!g) { g = { k: k, days: [] }; groups.push(g); } g.days.push(Number(d.t.toLocaleDateString('en-IN', { day: 'numeric', timeZone: tz }))); });
+    var join = function (a) { return a.length === 1 ? String(a[0]) : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]; };
+    return groups.map(function (g) { return join(g.days) + ' ' + g.k; }).join(' and ') + ', ' + range(list[0]);
+  }
+  function totalMinutes(days, durationMin) { return (days && days.length) ? days.reduce(function (a, d) { return a + Number(d.duration_min || durationMin || 180); }, 0) : Number(durationMin || 0); }
   function minutes(n) { if (!n) return ''; var h = Math.floor(n / 60), m = n % 60; return (h ? h + ' h ' : '') + (m ? m + ' min' : '').trim(); }
   function slugify(s) { return String(s).toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80); }
   function courseName(slug) { return (cfg.courses && cfg.courses[slug]) || slug; }
@@ -90,5 +105,5 @@
   function download(name, text, type) { var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: type || 'text/csv' })); a.download = name; a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000); }
   function safeName(name) { return String(name).replace(/[^\w.\-]+/g, '_').slice(0, 120); }
 
-  window.LMS = { sb: sb, cfg: cfg, esc: esc, fmtDate: fmtDate, fmtDateTime: fmtDateTime, fmtInr: fmtInr, until: until, minutes: minutes, slugify: slugify, courseName: courseName, loadCourses: loadCourses, nl2p: nl2p, initials: initials, embedUrl: embedUrl, toast: toast, router: router, $: $, $$: $$, render: render, spinner: spinner, empty: empty, field: field, formData: formData, err: err, passwordToggles: passwordToggles, csv: csv, download: download, safeName: safeName };
+  window.LMS = { sb: sb, cfg: cfg, esc: esc, fmtDate: fmtDate, fmtDateTime: fmtDateTime, fmtInr: fmtInr, until: until, minutes: minutes, slugify: slugify, courseName: courseName, loadCourses: loadCourses, schedule: schedule, totalMinutes: totalMinutes, nl2p: nl2p, initials: initials, embedUrl: embedUrl, toast: toast, router: router, $: $, $$: $$, render: render, spinner: spinner, empty: empty, field: field, formData: formData, err: err, passwordToggles: passwordToggles, csv: csv, download: download, safeName: safeName };
 })();

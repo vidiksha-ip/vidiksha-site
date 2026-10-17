@@ -185,8 +185,9 @@ Deno.serve(async (req) => {
       const sr = await fetch(`${SUPABASE_URL}/rest/v1/training_sessions?slug=eq.${sslug}&select=*`, { headers: h });
       const s = sr.ok ? (await sr.json())[0] : null;
       if (!s) return json({ error: "No such session in the database." }, 404, origin);
-      const ist = new Date(s.starts_at).toLocaleString("sv-SE", { timeZone: "Asia/Kolkata" }).replace(" ", "T") + "+05:30";
-      const file: Record<string, unknown> = { slug: sslug, title: s.title, summary: s.summary ?? "", format: s.format ?? "", certificate: s.certificate ?? "", area: s.area ?? "", datetime: ist, duration: Number(s.duration_min) || 180, price: Number(s.price_inr) || 0, platform: s.platform ?? "Microsoft Teams" };
+      const toIst = (d: string) => new Date(d).toLocaleString("sv-SE", { timeZone: "Asia/Kolkata" }).replace(" ", "T") + "+05:30";
+      const dayList = (Array.isArray(s.days) && s.days.length ? s.days : [{ starts_at: s.starts_at, duration_min: s.duration_min }]) as { starts_at: string; duration_min: number }[];
+      const file: Record<string, unknown> = { slug: sslug, title: s.title, summary: s.summary ?? "", format: s.format ?? "", certificate: s.certificate ?? "", area: s.area ?? "", datetime: toIst(dayList[0].starts_at), duration: Number(dayList[0].duration_min) || 180, days: dayList.map((d) => ({ datetime: toIst(d.starts_at), duration: Number(d.duration_min) || 180 })), price: Number(s.price_inr) || 0, platform: s.platform ?? "Microsoft Teams" };
       if (s.replay_url) file.replayUrl = s.replay_url;
       if (s.whatsapp_group_url) file.whatsappGroup = s.whatsapp_group_url;
       if (s.external_register_url) file.externalRegisterUrl = s.external_register_url;

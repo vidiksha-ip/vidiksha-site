@@ -300,6 +300,14 @@ async function registerSession(req: Request, origin: string | null) {
   return json({ ok: true, whatsapp, account, portal: PORTAL_URL || null }, 200, origin);
 }
 
+/** The sittings of a session: first start, all dates, total minutes, and when the last sitting ends. */
+function sessionSchedule(s: Record<string, unknown> | null | undefined, fallbackDate: string | null) {
+  const raw = (s && Array.isArray(s.days) && (s.days as unknown[]).length ? s.days : [{ starts_at: s?.starts_at ?? fallbackDate, duration_min: s?.duration_min ?? 180 }]) as { starts_at: string; duration_min: number }[];
+  const days = raw.filter((d) => d.starts_at).map((d) => ({ t: new Date(d.starts_at), m: Number(d.duration_min) || 180 })).sort((a, b) => a.t.getTime() - b.t.getTime());
+  const last = days[days.length - 1];
+  return { first: days[0]?.t ?? new Date(), dates: days.map((d) => d.t), minutes: days.reduce((a, d) => a + d.m, 0), ends: last ? new Date(last.t.getTime() + last.m * 60000) : new Date() };
+}
+
 /** GET /certificate?session=<slug>, with the registrant's own session token: their participation certificate PDF.
  *  Available once the session is over, attendance is not marked absent, and feedback has been given. */
 async function certificateDownload(req: Request, origin: string | null) {
@@ -317,23 +325,25 @@ async function certificateDownload(req: Request, origin: string | null) {
     const reg = (await db(`training_registrations?id=eq.${encodeURIComponent(regParam)}&select=*`))?.[0];
     if (!reg) return json({ error: "No such registration." }, 404, origin);
     if (!reg.certificate_no) return json({ error: "No certificate has been issued for this registration yet." }, 409, origin);
-    const ss = (await db(`training_sessions?slug=eq.${encodeURIComponent(reg.session_slug)}&select=title,starts_at,duration_min`))?.[0];
-    const pdfS = buildCertificatePdf({ certificateNo: reg.certificate_no, name: reg.full_name, sessionTitle: ss?.title || reg.session_title, sessionDate: new Date(ss?.starts_at || reg.session_date), durationMin: Number(ss?.duration_min) || 180, issuedAt: new Date(reg.certificate_issued_at || Date.now()), issuer: SELLER.name, website: SITE_URL.replace(/^https?:\/\//, "") });
+    const ss = (await db(`training_sessions?slug=eq.${encodeURIComponent(reg.session_slug)}&select=title,starts_at,duration_min,days`))?.[0];
+    const sched = sessionSchedule(ss, reg.session_date);
+    const pdfS = buildCertificatePdf({ certificateNo: reg.certificate_no, name: reg.full_name, sessionTitle: ss?.title || reg.session_title, sessionDate: sched.first, sessionDates: sched.dates, durationMin: sched.minutes, issuedAt: new Date(reg.certificate_issued_at || Date.now()), issuer: SELLER.name, website: SITE_URL.replace(/^https?:\/\//, "") });
     return new Response(pdfS, { status: 200, headers: { ...cors(origin), "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="VIDIKSHA-certificate-${reg.certificate_no.replace(/\//g, "-")}.pdf"`, "Cache-Control": "private, no-store" } });
   }
   const slug = clean(params.get("session"), 120);
   const regs = await db(`training_registrations?session_slug=eq.${encodeURIComponent(slug)}&or=(user_id.eq.${user.id},email.ilike.${encodeURIComponent(String(user.email))})&select=*`);
   const r = regs?.[0];
   if (!r) return json({ error: "You are not registered for this session." }, 404, origin);
-  const sess = (await db(`training_sessions?slug=eq.${encodeURIComponent(slug)}&select=title,starts_at,duration_min`))?.[0];
+  const sess = (await db(`training_sessions?slug=eq.${encodeURIComponent(slug)}&select=title,starts_at,duration_min,days`))?.[0];
   if (!sess) return json({ error: "Session not found." }, 404, origin);
-  const ends = new Date(new Date(sess.starts_at).getTime() + (Number(sess.duration_min) || 180) * 60000);
+  const sched2 = sessionSchedule(sess, null);
+  const ends = sched2.ends;
   if (ends > new Date()) return json({ error: "The certificate is available after the session." }, 409, origin);
   if (r.attended === false) return json({ error: "Our records show you did not attend this session. Write to team@vidiksha.in if that is wrong." }, 409, origin);
   const fb = await db(`training_feedback?session_slug=eq.${encodeURIComponent(slug)}&user_id=eq.${user.id}&select=id`);
   if (!fb?.length) return json({ error: "Please share your feedback first; the certificate unlocks right after." }, 409, origin);
   const no = r.certificate_no || await rpc("assign_certificate_number", { reg_id: r.id });
-  const pdf = buildCertificatePdf({ certificateNo: no, name: r.full_name, sessionTitle: sess.title, sessionDate: new Date(sess.starts_at), durationMin: Number(sess.duration_min) || 180, issuedAt: new Date(r.certificate_issued_at || Date.now()), issuer: SELLER.name, website: SITE_URL.replace(/^https?:\/\//, "") });
+  const pdf = buildCertificatePdf({ certificateNo: no, name: r.full_name, sessionTitle: sess.title, sessionDate: sched2.first, sessionDates: sched2.dates, durationMin: sched2.minutes, issuedAt: new Date(r.certificate_issued_at || Date.now()), issuer: SELLER.name, website: SITE_URL.replace(/^https?:\/\//, "") });
   return new Response(pdf, { status: 200, headers: { ...cors(origin), "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="VIDIKSHA-certificate-${no.replace(/\//g, "-")}.pdf"`, "Cache-Control": "private, no-store" } });
 }
 

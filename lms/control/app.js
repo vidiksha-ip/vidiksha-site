@@ -331,7 +331,7 @@
       L.field('Title', '<input type="text" name="title" required value="' + esc(s.title || '') + '" data-title>') +
       L.field('URL slug' + (isNew ? ' (auto from the date and title)' : ' (fixed; registrations are keyed to it)'), '<input type="text" name="slug" value="' + esc(s.slug || '') + '"' + (isNew ? ' placeholder="auto"' : ' readonly') + '>') +
       L.field('Summary (shown on the card and the registration page)', '<textarea name="summary">' + esc(s.summary || '') + '</textarea>') +
-      '<div class="form-row">' + L.field('Date and time (IST)', '<input type="datetime-local" name="starts_at" required value="' + dtLocal(s.starts_at) + '">') + L.field('Length (minutes)', '<input type="number" name="duration_min" min="30" value="' + esc(s.duration_min || 180) + '">') + '</div>' +
+      '<div class="field"><span>Days: one row per sitting (date, start time, length). A one-day session has one row.</span><div id="days-editor"></div><button type="button" class="btn btn-ghost btn-sm" id="add-day" style="margin-top:0.4rem">Add a day</button></div>' +
       '<div class="form-row">' + L.field('Price (INR, 0 = free)', '<input type="number" name="price_inr" min="0" value="' + esc(s.price_inr == null ? 0 : s.price_inr) + '">') + L.field('Area', '<select name="area">' + AREAS.map(function (a) { return '<option' + ((s.area || 'Trademark') === a ? ' selected' : '') + '>' + a + '</option>'; }).join('') + '</select>') + '</div>' +
       '<div class="form-row">' + L.field('Format line (first tick on the card)', '<input type="text" name="format" value="' + esc(s.format || 'Real Registry examination report + live drafting') + '">') + L.field('Certificate line (second tick)', '<input type="text" name="certificate" value="' + esc(s.certificate || 'Certificate of Training on successful completion') + '">') + '</div>' +
       '<div class="form-row">' + L.field('Platform', '<input type="text" name="platform" value="' + esc(s.platform || 'Microsoft Teams') + '">') + L.field('WhatsApp group invite link', '<input type="url" name="whatsapp_group_url" value="' + esc(s.whatsapp_group_url || '') + '" placeholder="https://chat.whatsapp.com/…">') + '</div>' +
@@ -341,10 +341,12 @@
       '<label class="check"><input type="checkbox" name="published_on_site"' + (s.published_on_site || isNew ? ' checked' : '') + '> <strong>Show on vidiksha.in</strong> (live training page and, if it is the next one, the home page)</label>' +
       '<p class="fine">Showing commits the session to the website repository; the site rebuilds in a minute or two. Unticking hides it from the site but keeps the session and its registrations here. The recording is never published on the site; registrants watch it in their portal.</p>',
       function (f, form) {
-        var slug = isNew ? L.slugify((f.starts_at ? f.starts_at.slice(0, 10) + ' ' : '') + (f.slug || f.title)) : s.slug;
+        var days = $$('[data-day-start]', form).map(function (inp) { var len = inp.parentNode.parentNode.querySelector('[data-day-len]'); return inp.value ? { starts_at: fromLocal(inp.value), duration_min: Number(len && len.value) || 180 } : null; }).filter(Boolean).sort(function (a, b) { return a.starts_at < b.starts_at ? -1 : 1; });
+        if (!days.length) throw new Error('Add at least one day with its date and time.');
+        f.starts_at = days[0].starts_at;
+        var slug = isNew ? L.slugify(days[0].starts_at.slice(0, 10) + ' ' + (f.slug || f.title)) : s.slug;
         if (!slug) throw new Error('Could not make a URL slug.');
-        if (!f.starts_at) throw new Error('Choose the date and time.');
-        var row = { slug: slug, title: f.title, summary: f.summary, starts_at: fromLocal(f.starts_at), duration_min: Number(f.duration_min) || 180, price_inr: Number(f.price_inr) || 0, area: f.area, format: f.format, certificate: f.certificate, platform: f.platform || 'Microsoft Teams', replay_url: f.replay_url || null, external_register_url: f.external_register_url || null, whatsapp_group_url: f.whatsapp_group_url || null, updated_at: new Date().toISOString() };
+        var row = { slug: slug, title: f.title, summary: f.summary, starts_at: days[0].starts_at, duration_min: days[0].duration_min, days: days, price_inr: Number(f.price_inr) || 0, area: f.area, format: f.format, certificate: f.certificate, platform: f.platform || 'Microsoft Teams', replay_url: f.replay_url || null, external_register_url: f.external_register_url || null, whatsapp_group_url: f.whatsapp_group_url || null, updated_at: new Date().toISOString() };
         var file = form.recording_file.files[0];
         var up = file ? upload('lms-videos', 'training/' + slug + '/' + Date.now() + '-' + L.safeName(file.name), file).then(function (p) { row.recording_path = p; }) : Promise.resolve();
         var wantSite = !!f.published_on_site, wasSite = !!s.published_on_site;
@@ -356,6 +358,22 @@
       });
     var t = $('[data-title]', d), sl = $('[name=slug]', d);
     if (isNew) { t.addEventListener('input', function () { if (!sl.dataset.touched) sl.value = L.slugify(t.value); }); sl.addEventListener('input', function () { sl.dataset.touched = '1'; }); }
+    // days editor
+    var ed = $('#days-editor', d);
+    var addDay = function (day) {
+      var row = document.createElement('div'); row.className = 'form-row day-row'; row.style.cssText = 'grid-template-columns: 1fr 140px auto; align-items: end; margin-bottom: 0.5rem';
+      row.innerHTML = '<label class="field"><span>Date and start time (IST)</span><input type="datetime-local" data-day-start value="' + esc(dtLocal(day && day.starts_at)) + '"></label><label class="field"><span>Minutes</span><input type="number" min="30" step="15" data-day-len value="' + esc((day && day.duration_min) || 120) + '"></label><button type="button" class="btn btn-ghost btn-sm" data-remove-day style="margin-bottom:0.15rem">Remove</button>';
+      ed.appendChild(row);
+      $('[data-remove-day]', row).addEventListener('click', function () { if (ed.children.length > 1) row.remove(); });
+    };
+    var initial = (s.days && s.days.length) ? s.days : (s.starts_at ? [{ starts_at: s.starts_at, duration_min: s.duration_min || 180 }] : [null]);
+    initial.forEach(addDay);
+    $('#add-day', d).addEventListener('click', function () {
+      var last = $$('[data-day-start]', ed).slice(-1)[0], len = $$('[data-day-len]', ed).slice(-1)[0];
+      var next = null;
+      if (last && last.value) { var t2 = new Date(fromLocal(last.value)); t2.setDate(t2.getDate() + 1); next = { starts_at: t2.toISOString(), duration_min: Number(len && len.value) || 120 }; }
+      addDay(next);
+    });
   }
   function training() {
     L.render(head('Training sessions', 'Live training sessions', 'Click a session for its participants. Show and Hide control whether it appears on vidiksha.in.', '<button class="btn btn-ghost" id="csv">Export all registrations</button><button class="btn" id="add">Add session</button>') + '<p class="status" id="tr-st"></p><div id="sessions">' + L.spinner() + '</div>');
@@ -365,7 +383,7 @@
       // Registrations whose session was removed still need a home.
       Object.keys(counts).forEach(function (k) { if (!sessions.some(function (s) { return s.slug === k; })) { var x = regs.filter(function (y) { return y.session_slug === k; })[0]; sessions.push({ slug: k, title: x.session_title, starts_at: x.session_date, removed: true, registrations: counts[k] }); } });
       $('#sessions').innerHTML = sessions.length ? table([
-        { label: 'When', nowrap: true, html: function (s) { var d = new Date(s.starts_at); return esc(L.fmtDate(d)) + (s.removed ? '' : '<span class="sub">' + esc(d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })) + ' IST · ' + esc(L.minutes(s.duration_min)) + '</span>') + (s.removed ? '<span class="pill bad">removed</span>' : d < now ? '<span class="pill">past</span>' : '<span class="pill ok">upcoming</span>'); } },
+        { label: 'When', html: function (s) { var d = new Date(s.starts_at); var endd = (s.days && s.days.length) ? new Date(new Date(s.days[s.days.length - 1].starts_at).getTime() + Number(s.days[s.days.length - 1].duration_min || 180) * 60000) : new Date(d.getTime() + (s.duration_min || 180) * 60000); return (s.removed ? esc(L.fmtDate(d)) : esc(L.schedule(s.days, s.starts_at, s.duration_min)) + '<span class="sub">' + ((s.days && s.days.length > 1) ? s.days.length + ' days · ' : '') + esc(L.minutes(L.totalMinutes(s.days, s.duration_min))) + '</span>') + (s.removed ? '<span class="pill bad">removed</span>' : endd < now ? '<span class="pill">past</span>' : '<span class="pill ok">upcoming</span>'); } },
         { label: 'Session', html: function (s) { return '<a href="#/training/' + encodeURIComponent(s.slug) + '"><strong>' + esc(s.title) + '</strong></a>' + (s.removed ? '' : '<span class="sub">' + esc(s.area || '') + ' · ' + (s.price_inr ? L.fmtInr(s.price_inr) : 'Free') + ' · ' + esc(s.platform || '') + '</span>'); } },
         { label: 'Website', html: function (s) { return s.removed ? '' : s.published_on_site ? '<span class="pill ok">shown</span>' : '<span class="pill">hidden</span>'; } },
         { label: 'Registered', html: function (s) { return '<a href="#/training/' + encodeURIComponent(s.slug) + '">' + (s.registrations || 0) + '</a>'; } },
@@ -387,8 +405,9 @@
       if (!s && !regs.length) return L.render(L.empty('No such session.'));
       var fbBy = {}; fbs.forEach(function (f) { fbBy[f.user_id] = f; });
       var title = s ? s.title : regs[0].session_title, when = s ? new Date(s.starts_at) : (regs[0].session_date ? new Date(regs[0].session_date) : null);
-      var finished = s && (new Date(s.starts_at).getTime() + (s.duration_min || 180) * 60000) < Date.now();
-      L.render(head('Training session', title, '<a href="#/training">← All sessions</a>' + (when ? ' · ' + esc(L.fmtDate(when)) + (s ? ', ' + esc(when.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })) + ' IST · ' + esc(L.minutes(s.duration_min)) : '') : '') + (s ? ' · ' + (s.price_inr ? L.fmtInr(s.price_inr) : 'Free') + ' · ' + esc(s.platform || '') + ' · ' + (s.published_on_site ? '<span class="pill ok">shown on vidiksha.in</span>' : '<span class="pill">hidden from the website</span>') + ' · ' + ((s.replay_url || s.recording_path) ? '<span class="pill ok">recording attached</span>' : '<span class="pill warn">no recording yet</span>') : ' · <span class="pill bad">session removed; registrations kept</span>'),
+      var lastDay = s && s.days && s.days.length ? s.days[s.days.length - 1] : null;
+      var finished = s && ((lastDay ? new Date(lastDay.starts_at).getTime() + Number(lastDay.duration_min || 180) * 60000 : new Date(s.starts_at).getTime() + (s.duration_min || 180) * 60000) < Date.now());
+      L.render(head('Training session', title, '<a href="#/training">← All sessions</a>' + (when ? ' · ' + (s ? esc(L.schedule(s.days, s.starts_at, s.duration_min)) + ' · ' + ((s.days && s.days.length > 1) ? s.days.length + ' days, ' : '') + esc(L.minutes(L.totalMinutes(s.days, s.duration_min))) : esc(L.fmtDate(when))) : '') + (s ? ' · ' + (s.price_inr ? L.fmtInr(s.price_inr) : 'Free') + ' · ' + esc(s.platform || '') + ' · ' + (s.published_on_site ? '<span class="pill ok">shown on vidiksha.in</span>' : '<span class="pill">hidden from the website</span>') + ' · ' + ((s.replay_url || s.recording_path) ? '<span class="pill ok">recording attached</span>' : '<span class="pill warn">no recording yet</span>') : ' · <span class="pill bad">session removed; registrations kept</span>'),
         (s ? '<button class="btn btn-ghost" id="edit">Edit / add recording</button>' + (s.published_on_site ? '<button class="btn btn-ghost" id="hide">Hide from website</button>' : '<button class="btn" id="show">Show on website</button>') + '<button class="btn btn-danger" id="del">Remove session</button>' : '') + (regs.length ? '<button class="btn btn-ghost" id="csv">Export CSV</button>' : '')) +
         '<p class="status" id="ts-st"></p>' + (s && s.summary ? '<p class="muted" style="max-width:70ch">' + esc(s.summary) + '</p>' : '') +
         '<div class="grid grid-4" style="margin-bottom:1.5rem">' + [[regs.length, 'registered'], [regs.filter(function (x) { return x.attended !== false; }).length, 'marked attended'], [fbs.length, 'gave feedback'], [regs.filter(function (x) { return x.certificate_no; }).length, 'certificates issued']].map(function (x) { return '<div class="card stat"><div class="n" style="font-size:1.5rem">' + x[0] + '</div><div class="l">' + x[1] + '</div></div>'; }).join('') + '</div>' +

@@ -4,6 +4,7 @@ export interface CertificateData {
   name: string;
   sessionTitle: string;
   sessionDate: Date;
+  sessionDates?: Date[];   // every sitting of a multi-day session
   durationMin: number;
   issuedAt: Date;
   issuer: string;      // "Vidiksha IP"
@@ -20,6 +21,16 @@ function wrap(s: string, size: number, max: number, font: "F1" | "F2" | "F3") {
   if (cur) lines.push(cur); return lines;
 }
 const fmtDate = (d: Date) => d.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kolkata" });
+function fmtDateList(dates: Date[]) {
+  const groups: { key: string; days: number[] }[] = [];
+  for (const dt of dates) {
+    const key = dt.toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "Asia/Kolkata" });
+    let g = groups.find((x) => x.key === key); if (!g) groups.push(g = { key, days: [] });
+    g.days.push(Number(dt.toLocaleDateString("en-IN", { day: "numeric", timeZone: "Asia/Kolkata" })));
+  }
+  const join = (a: number[]) => a.length === 1 ? String(a[0]) : `${a.slice(0, -1).join(", ")} and ${a[a.length - 1]}`;
+  return groups.map((g) => `${join(g.days)} ${g.key}`).join(" and ");
+}
 const fmtLength = (min: number) => min < 60 ? `${min} minutes` : (min % 60 === 0 ? `${min / 60} hour${min === 60 ? "" : "s"}` : `${Math.floor(min / 60)} h ${min % 60} min`);
 
 export function buildCertificatePdf(d: CertificateData): Uint8Array {
@@ -59,7 +70,8 @@ export function buildCertificatePdf(d: CertificateData): Uint8Array {
   const tl = wrap(d.sessionTitle, 19, 620, "F2");
   let y = 340;
   for (const l of tl) { center(y, l, 19, "F2", ink); y += 25; }
-  center(y + 10, `held online on ${fmtDate(d.sessionDate)}  ·  ${fmtLength(d.durationMin)}`, 12, "F1", grey);
+  const dates = d.sessionDates && d.sessionDates.length ? d.sessionDates : [d.sessionDate];
+  center(y + 10, `held online on ${fmtDateList(dates)}  ·  ${dates.length > 1 ? `${dates.length} days, ` : ""}${fmtLength(d.durationMin)}`, 12, "F1", grey);
   center(y + 30, "Real documents, live drafting, questions answered.", 11, "F3", grey);
 
   // Foot: certificate number, issue date, issuer
