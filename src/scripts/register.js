@@ -62,7 +62,7 @@
         var first = v.full_name.split(' ')[0] || '';
         var account = j.account === 'created' ? 'Your learning portal account at ' + portal + ' is ready: sign in with this email and the password you set. '
           : j.account === 'existing' ? 'The seat is added to your existing VIDIKSHA account; sign in at ' + portal + ' as usual. '
-          : j.account === 'existing, password differs' ? 'An account already exists for this email, so your existing password still applies; use "Forgot your password" at ' + portal + ' if you need a new one. ' : '';
+          : j.account === 'existing, password differs' ? 'An account already exists for this email, so your existing password still applies at ' + portal + '; if you have forgotten it, write to team@vidiksha.in and the team will set a new one. ' : '';
         finish((j.already ? 'You were already registered with this email. ' : 'Thank you for registering, ' + first + '. ') + account + (j.whatsapp ? 'Join the WhatsApp group below: the Teams link, materials and reminders are shared there. After the session the recording, your feedback form and your certificate are in the portal.' : 'The Teams link and materials will reach you on WhatsApp before the session; the recording and your certificate appear in the portal afterwards.'), j.whatsapp);
       })
       .catch(function (e2) { say(e2.message, false); btn.disabled = false; });

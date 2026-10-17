@@ -14,7 +14,7 @@
       L.field('Email', '<input type="email" name="email" required autocomplete="username">') +
       L.field('Password', '<div class="pw"><input type="password" name="password" id="pw" required autocomplete="current-password"><button type="button" data-toggle-password="pw">Show</button></div>') +
       '<button class="btn" type="submit">Sign in</button><p class="status" id="st">' + esc(msg || '') + '</p></form>' +
-      '<div class="auth-foot">Staff accounts are ordinary VIDIKSHA accounts that an admin has added to the team. Forgot the password? Reset it from the <a href="' + L.cfg.portalUrl + '/#/forgot">learning portal</a>.</div>');
+      '<div class="auth-foot">Staff accounts are ordinary VIDIKSHA accounts that an admin has added to the team. Forgot the password? Ask an admin to set a new one from your member page.</div>');
     $('#login-form').addEventListener('submit', function (e) {
       e.preventDefault(); var f = L.formData(e.target), st = $('#st'); st.textContent = 'Signing in…'; st.className = 'status';
       sb.auth.signInWithPassword({ email: f.email.toLowerCase(), password: f.password }).then(function (r) { if (r.error) { st.textContent = r.error.message; st.className = 'status is-error'; } });

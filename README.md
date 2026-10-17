@@ -164,6 +164,8 @@ The account has **no course access**: it opens the learning portal, where the Li
 
 **Testimonials.** On a session's page in the control panel, "Publish consented feedback to vidiksha.in" writes every consented piece of feedback (all sessions) to `content/testimonials.json`; the live training page shows up to nine as "What participants say", with name, profession, organisation and LinkedIn link. Migration 0013 adds the feedback table, the certificate numbering and the registrants' read access.
 
+**Passwords.** There is no self-service password reset: the portal, the welcome email and the registration page tell members to write to team@vidiksha.in, and an admin sets a new password from the member's page in the control panel (Set password). Signed-in members can still change their own password on the Profile page.
+
 ### Emails from noreply@vidiksha.in
 
 Out of the box, confirmation and reset emails come from Supabase's shared sender, which is rate-limited (a few emails an hour) and not branded. Once the vidiksha.in domain exists:

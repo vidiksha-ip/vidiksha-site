@@ -21,45 +21,15 @@
       L.field('Email', '<input type="email" name="email" required autocomplete="username">') +
       L.field('Password', '<div class="pw"><input type="password" name="password" id="pw" required autocomplete="current-password"><button type="button" data-toggle-password="pw">Show</button></div>') +
       '<button class="btn" type="submit">Sign in</button><p class="status" id="login-status">' + esc(msg || '') + '</p></form>' +
-      '<div class="auth-foot"><a href="#/forgot">Forgot your password?</a> · No account yet? <a href="' + L.cfg.siteUrl + '/courses/">Enrol in a course</a></div>');
+      '<div class="auth-foot">Forgot your password? Write to team@vidiksha.in from your registered email and the team will set a new one for you. No account yet? <a href="' + L.cfg.siteUrl + '/courses/">Enrol in a course</a></div>');
     $('#login-form').addEventListener('submit', function (e) {
       e.preventDefault();
       var f = L.formData(e.target), st = $('#login-status'); st.textContent = 'Signing in…'; st.className = 'status';
       sb.auth.signInWithPassword({ email: f.email.toLowerCase(), password: f.password }).then(function (r) {
-        if (r.error) { st.textContent = r.error.message === 'Invalid login credentials' ? 'That email and password do not match. Check the welcome email, or reset the password.' : r.error.message; st.className = 'status is-error'; }
+        if (r.error) { st.textContent = r.error.message === 'Invalid login credentials' ? 'That email and password do not match. Check the welcome email, or write to team@vidiksha.in to have the password reset.' : r.error.message; st.className = 'status is-error'; }
       });
     });
   }
-  function forgotScreen() {
-    authShell('<h1>Reset password</h1><p class="muted">We will email you a link to set a new password.</p>' +
-      '<form class="form" id="forgot-form">' + L.field('Email', '<input type="email" name="email" required>') +
-      '<button class="btn" type="submit">Send reset link</button><p class="status" id="forgot-status"></p></form>' +
-      '<div class="auth-foot"><a href="#/">Back to sign in</a></div>');
-    $('#forgot-form').addEventListener('submit', function (e) {
-      e.preventDefault();
-      var st = $('#forgot-status'); st.textContent = 'Sending…';
-      sb.auth.resetPasswordForEmail(L.formData(e.target).email.toLowerCase(), { redirectTo: location.origin + location.pathname }).then(function (r) {
-        st.textContent = r.error ? r.error.message : 'If that address has an account, the reset link is on its way.'; st.className = 'status ' + (r.error ? 'is-error' : 'is-ok');
-      });
-    });
-  }
-  function resetScreen() {
-    authShell('<h1>Choose a new password</h1>' +
-      '<form class="form" id="reset-form">' +
-      L.field('New password', '<div class="pw"><input type="password" name="password" id="npw" required minlength="8" autocomplete="new-password"><button type="button" data-toggle-password="npw">Show</button></div>') +
-      L.field('Repeat it', '<input type="password" name="confirm" required minlength="8" autocomplete="new-password">') +
-      '<button class="btn" type="submit">Save password</button><p class="status" id="reset-status"></p></form>');
-    $('#reset-form').addEventListener('submit', function (e) {
-      e.preventDefault();
-      var f = L.formData(e.target), st = $('#reset-status');
-      if (f.password !== f.confirm) { st.textContent = 'The two passwords differ.'; st.className = 'status is-error'; return; }
-      sb.auth.updateUser({ password: f.password }).then(function (r) {
-        if (r.error) { st.textContent = r.error.message; st.className = 'status is-error'; return; }
-        L.toast('Password saved', 'ok'); recoveryMode = false; location.hash = '#/'; boot();
-      });
-    });
-  }
-
   /* ------------------------------------------------------------ shell */
   var NAV = [['', 'Dashboard'], ['courses', 'My courses'], ['training', 'Live training'], ['notices', 'Announcements'], ['messages', 'Messages'], ['profile', 'Profile']];
   function shell() {
@@ -458,14 +428,9 @@
     '': dashboard, 'courses': coursesPage, 'course/:slug': function (p, q) { coursePage(p.slug, q); }, 'lecture/:id': function (p) { lecturePage(p.id); },
     'assignment/:id': function (p) { assignmentPage(p.id); }, 'training': trainingPage, 'training/:slug': function (p) { trainingSessionPage(p.slug); }, 'notices': noticesPage, 'messages': messagesPage, 'profile': profilePage
   }, function () { L.render(L.empty('Page not found.')); });
-  var recoveryMode = false;
   function route() {
     var r = routes.parse();
-    if (!session) {
-      if (r.path === 'forgot') return forgotScreen();
-      return loginScreen();
-    }
-    if (recoveryMode || r.path === 'reset') return resetScreen();
+    if (!session) return loginScreen();
     if (!$('#main')) shell();
     drawNav();
     r.handler(r.params, r.query);
@@ -478,7 +443,6 @@
   window.addEventListener('hashchange', route);
   sb.auth.onAuthStateChange(function (event, s) {
     var had = !!session; session = s;
-    if (event === 'PASSWORD_RECOVERY') { recoveryMode = true; return route(); }
     if (event === 'SIGNED_IN' && !had) { logEvent('portal_login', { ua: navigator.userAgent.slice(0, 120) }); sb.from('profiles').update({ last_login_at: new Date().toISOString() }).eq('id', s.user.id).then(function () {}); return boot(); }
     if (event === 'SIGNED_OUT') { profile = null; courses = []; location.hash = '#/'; return route(); }
     if (event === 'INITIAL_SESSION') return boot();

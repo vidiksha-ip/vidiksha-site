@@ -28,8 +28,8 @@ export function welcomeHtml(m: WelcomeMail) {
          <tr><td style="padding:10px 14px;color:#6f6c66;width:120px;">Login email</td><td style="padding:10px 14px;font-weight:600;">${esc(m.account.email)}</td></tr>
          <tr><td style="padding:10px 14px;color:#6f6c66;border-top:1px solid #e4e2dd;">Password</td><td style="padding:10px 14px;font-weight:600;border-top:1px solid #e4e2dd;font-family:Menlo,Consolas,monospace;">${esc(m.account.password || "")}</td></tr>
        </table>
-       <p style="margin:10px 0 0;font-size:13px;color:#6f6c66;">Please change this password after your first login (Profile page in the portal). Forgotten it? <a href="${esc(m.account.resetUrl)}" style="color:#1d4a39;">Request a reset link</a>.</p>`
-    : `<p style="margin:0;">You already have a VIDIKSHA account under <strong>${esc(m.account.email)}</strong>, so this course has been added to it. Sign in with your existing password${m.portalUrl ? ` at <a href="${esc(m.portalUrl)}" style="color:#1d4a39;">${esc(host(m.portalUrl))}</a>` : ""}; if you have forgotten it, <a href="${esc(m.account.resetUrl)}" style="color:#1d4a39;">reset it here</a>.</p>`;
+       <p style="margin:10px 0 0;font-size:13px;color:#6f6c66;">Please change this password after your first login (Profile page in the portal). If you ever forget it, write to <a href="mailto:team@vidiksha.in" style="color:#1d4a39;">team@vidiksha.in</a> and the team will set a new one.</p>`
+    : `<p style="margin:0;">You already have a VIDIKSHA account under <strong>${esc(m.account.email)}</strong>, so this course has been added to it. Sign in with your existing password${m.portalUrl ? ` at <a href="${esc(m.portalUrl)}" style="color:#1d4a39;">${esc(host(m.portalUrl))}</a>` : ""}; if you have forgotten it, write to <a href="mailto:team@vidiksha.in" style="color:#1d4a39;">team@vidiksha.in</a> and the team will set a new one.</p>`;
 
   return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fafaf9;padding:32px 0;font-family:Helvetica,Arial,sans-serif;color:#0f0e0d;">
   <tr><td align="center">
@@ -63,8 +63,8 @@ export function welcomeHtml(m: WelcomeMail) {
 
 export function welcomeText(m: WelcomeMail) {
   const login = m.account.status === "created"
-    ? `Your VIDIKSHA account has been created.\nLogin email: ${m.account.email}\nPassword: ${m.account.password}\nPlease change the password after your first login (${m.account.resetUrl}).`
-    : `You already have a VIDIKSHA account under ${m.account.email}; this course has been added to it. Reset your password if needed: ${m.account.resetUrl}`;
+    ? `Your VIDIKSHA account has been created.\nLogin email: ${m.account.email}\nPassword: ${m.account.password}\nPlease change the password after your first login. Forgotten it? Write to team@vidiksha.in.`
+    : `You already have a VIDIKSHA account under ${m.account.email}; this course has been added to it. Forgotten the password? Write to team@vidiksha.in.`;
   return `Welcome to ${m.course}.\n\nYour payment of INR ${m.amountInr.toLocaleString("en-IN")} has been received. Invoice ${m.invoiceNo} (Razorpay payment ${m.paymentId}) is attached as a PDF.\n\n${login}\n\n${m.portalUrl ? "Learning portal: " + m.portalUrl : "The learning portal at portal.vidiksha.in opens shortly; the same login will work there."}\nCase law repository (free, no login): ${m.researchUrl}\n\n${m.accessNote}\nYour community invitation follows within one working day.${m.kit ? "\nThe IP Prosecution Kit is couriered to your address within 7 working days." : ""}\n\nQuestions: team@vidiksha.in\nVidiksha Learning LLP. Nothing on VIDIKSHA is legal advice.`;
 }
 
