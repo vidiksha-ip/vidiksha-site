@@ -93,6 +93,21 @@ Deno.serve(async (req) => {
       return json({ ok: true, slug: cslug, url: `${SITE_URL}/courses/${cslug}/`, commit: resp.commit?.sha }, 200, origin);
     }
 
+    // Testimonials: every piece of training feedback whose author consented to publication -> content/testimonials.json
+    if (b.type === "testimonials") {
+      const h = { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` };
+      const fr = await fetch(`${SUPABASE_URL}/rest/v1/training_feedback_overview?consent_publish=is.true&select=*&order=created_at.desc`, { headers: h });
+      const rows = fr.ok ? await fr.json() : [];
+      const list = rows.map((r: Record<string, unknown>) => ({ name: r.full_name, profession: r.profession ?? "", organisation: r.organisation ?? "", linkedin: r.linkedin_url, rating: r.rating, text: r.feedback, session: r.session_title, date: r.created_at }));
+      const tpath = "content/testimonials.json";
+      const cur = await gh(`${tpath}?ref=${GH_BRANCH}`);
+      const sha = cur.ok ? (await cur.json()).sha : undefined;
+      const put = await gh(tpath, { method: "PUT", body: JSON.stringify({ message: `Update participant testimonials (${list.length})\n\nPublished from the control panel by ${staff.email}`, content: b64(JSON.stringify(list, null, 2) + "\n"), branch: GH_BRANCH, sha, committer: { name: "VIDIKSHA Control Panel", email: "team@vidiksha.in" } }) });
+      const resp = await put.json();
+      if (!put.ok) { console.error("github", resp); return json({ error: `GitHub refused the commit: ${resp.message ?? put.status}` }, 502, origin); }
+      return json({ ok: true, count: list.length, url: `${SITE_URL}/live-training/` }, 200, origin);
+    }
+
     // Live training session: write content/training/<slug>.json from the database, or remove it (hide from the site).
     if (b.type === "session" || b.type === "unpublish_session") {
       const sslug = String(b.slug ?? "").replace(/[^a-z0-9-]/g, "");

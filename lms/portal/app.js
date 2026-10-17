@@ -61,7 +61,7 @@
   }
 
   /* ------------------------------------------------------------ shell */
-  var NAV = [['', 'Dashboard'], ['courses', 'My courses'], ['notices', 'Announcements'], ['messages', 'Messages'], ['profile', 'Profile']];
+  var NAV = [['', 'Dashboard'], ['courses', 'My courses'], ['training', 'Live training'], ['notices', 'Announcements'], ['messages', 'Messages'], ['profile', 'Profile']];
   function shell() {
     var name = (profile && profile.full_name) || session.user.email;
     app.innerHTML = '<div class="shell"><aside class="sidebar"><a class="brand" href="#/">VIDIKSHA<small>Learning portal</small></a><nav class="nav" id="nav"></nav>' +
@@ -118,7 +118,7 @@
     L.render('<div class="page-head"><div><p class="eyebrow">Dashboard</p><h1>Welcome back, ' + esc((profile.full_name || '').split(' ')[0] || 'there') + '.</h1></div></div>' +
       '<div class="section" style="margin-top:0"><div class="section-head"><h2>Your courses</h2><a href="#/courses">All courses</a></div><div id="dash-courses">' + L.spinner() + '</div></div>' +
       '<div class="grid grid-2 section"><div><div class="section-head"><h2>Announcements</h2><a href="#/notices">All</a></div><div id="dash-notices">' + L.spinner() + '</div></div>' +
-      '<div><div class="section-head"><h2>Your live sessions</h2></div><div id="dash-sessions">' + L.spinner() + '</div></div></div>');
+      '<div><div class="section-head"><h2>Your live sessions</h2><a href="#/training">All</a></div><div id="dash-sessions">' + L.spinner() + '</div></div></div>');
     courseCards($('#dash-courses'));
     sb.from('announcements').select('*').order('pinned', { ascending: false }).order('created_at', { ascending: false }).limit(4).then(function (r) {
       $('#dash-notices').innerHTML = (r.data && r.data.length) ? r.data.map(noticeHtml).join('') : L.empty('No announcements yet.');
@@ -314,6 +314,71 @@
     });
   }
 
+  /* ------------------------------------------------------------ live training */
+  function trainingState(t) {
+    if (!t.finished) return { label: 'Upcoming', cls: 'ok' };
+    if (t.attended === false) return { label: 'Marked absent', cls: 'bad' };
+    if (!t.feedback_given) return { label: 'Feedback pending', cls: 'warn' };
+    return { label: t.certificate_no ? 'Certificate issued' : 'Certificate ready', cls: 'ok' };
+  }
+  function trainingPage() {
+    L.render('<div class="page-head"><div><p class="eyebrow">Live training</p><h1>Your live training sessions</h1><p>Recordings appear here after each session. Share your feedback to unlock the participation certificate.</p></div><a class="btn btn-ghost" href="' + L.cfg.siteUrl + '/live-training/" target="_blank" rel="noopener">Upcoming sessions on vidiksha.in ↗</a></div><div id="tt">' + L.spinner() + '</div>');
+    sb.from('my_training').select('*').order('starts_at', { ascending: false }).then(function (r) {
+      var rows = r.data || [];
+      $('#tt').innerHTML = rows.length ? '<div class="grid grid-2">' + rows.map(function (t) {
+        var st = trainingState(t);
+        return '<div class="card"><p class="eyebrow">' + esc(t.starts_at ? L.fmtDateTime(t.starts_at) + ' IST' : 'Date to be announced') + '</p><h3><a href="#/training/' + encodeURIComponent(t.session_slug) + '">' + esc(t.title) + '</a></h3><div class="muted small">' + (t.duration_min ? esc(L.minutes(t.duration_min)) + ' · ' : '') + esc(t.platform || 'Microsoft Teams') + '</div><div style="margin:0.6rem 0"><span class="pill ' + st.cls + '">' + st.label + '</span>' + ((t.replay_url || t.recording_path) && t.finished ? ' <span class="pill ok">Recording available</span>' : '') + '</div>' +
+          '<div class="actions"><a class="btn btn-sm" href="#/training/' + encodeURIComponent(t.session_slug) + '">' + (t.finished ? ((t.replay_url || t.recording_path) ? '▶ Watch the recording' : 'Open') : 'Details') + '</a>' + (t.whatsapp_group_url && !t.finished ? '<a class="btn btn-ghost btn-sm" href="' + esc(t.whatsapp_group_url) + '" target="_blank" rel="noopener">WhatsApp group</a>' : '') + '</div></div>';
+      }).join('') + '</div>' : '<div class="empty">You have not registered for a live training session yet. <a href="' + L.cfg.siteUrl + '/live-training/" target="_blank" rel="noopener">See upcoming sessions</a>.</div>';
+    });
+  }
+  function trainingSessionPage(slug) {
+    L.render(L.spinner());
+    Promise.all([sb.from('my_training').select('*').eq('session_slug', slug).maybeSingle(), sb.from('training_feedback').select('*').eq('session_slug', slug).eq('user_id', session.user.id).maybeSingle()]).then(function (r) {
+      var t = r[0].data, fb = r[1].data;
+      if (!t) return L.render(L.empty('You are not registered for this session.'));
+      var st = trainingState(t);
+      L.render('<p class="eyebrow"><a href="#/training">Live training</a></p><h1>' + esc(t.title) + '</h1><p class="muted">' + esc(t.starts_at ? L.fmtDateTime(t.starts_at) + ' IST' : '') + (t.duration_min ? ' · ' + esc(L.minutes(t.duration_min)) : '') + ' · ' + esc(t.platform || 'Microsoft Teams') + ' · <span class="pill ' + st.cls + '">' + st.label + '</span></p>' +
+        '<div class="lecture-layout"><div>' +
+        (t.finished ? '<div class="player" id="player">' + L.spinner('Loading recording') + '</div>' : '<div class="card"><p class="eyebrow">Before the session</p><p>' + (t.summary ? esc(t.summary) : '') + '</p><p class="muted">The Teams link and reminders are posted in the WhatsApp group. The recording appears here within 24 hours of the session.</p>' + (t.whatsapp_group_url ? '<a class="btn" href="' + esc(t.whatsapp_group_url) + '" target="_blank" rel="noopener">Open the WhatsApp group</a>' : '') + '</div>') +
+        (t.finished ? '<div class="section"><div class="section-head"><h2>' + (fb ? 'Your feedback' : 'Share your feedback') + '</h2></div>' +
+          (fb ? '<div class="card"><p class="muted small">Submitted ' + esc(L.fmtDate(fb.created_at)) + ' · rated ' + fb.rating + ' of 5' + (fb.consent_publish ? ' · may be published on vidiksha.in' : ' · private') + '</p><div class="prose">' + L.nl2p(fb.feedback) + '</div><p class="small"><a href="' + esc(fb.linkedin_url) + '" target="_blank" rel="noopener">' + esc(fb.linkedin_url) + '</a></p></div>'
+            : '<form class="form card" id="fb-form"><p class="muted" style="margin:0">Feedback is required before the participation certificate can be downloaded. It helps us plan the next session.</p>' +
+              L.field('How useful was the session?', '<select name="rating" required><option value="">Choose</option><option value="5">5 · Excellent</option><option value="4">4 · Very good</option><option value="3">3 · Good</option><option value="2">2 · Fair</option><option value="1">1 · Poor</option></select>') +
+              L.field('Your feedback (what worked, what you would change, what you will do differently at work)', '<textarea name="feedback" required minlength="40" placeholder="At least a few sentences"></textarea>') +
+              L.field('Your LinkedIn profile link', '<input type="url" name="linkedin_url" required placeholder="https://www.linkedin.com/in/your-name">') +
+              '<label class="check"><input type="checkbox" name="consent_publish"> I consent to VIDIKSHA publishing this feedback with my name, profession and LinkedIn profile on vidiksha.in</label>' +
+              '<div><button class="btn" type="submit">Submit feedback</button></div><p class="status" id="fb-st"></p></form>') + '</div>' : '') +
+        '</div><aside><div class="card"><p class="eyebrow">Participation certificate</p>' +
+        (!t.finished ? '<p class="muted small">Available after the session, once you have shared your feedback.</p>' : t.attended === false ? '<p class="muted small">Our records show you did not attend. Write to team@vidiksha.in if that is wrong.</p>' : !t.feedback_given ? '<p class="muted small">Share your feedback on the left and the certificate unlocks here.</p>' : '<p class="small">' + (t.certificate_no ? 'Certificate ' + esc(t.certificate_no) : 'Your certificate is ready.') + '</p><button class="btn" id="cert">Download certificate (PDF)</button><p class="status" id="cert-st"></p>') +
+        '</div>' + (t.whatsapp_group_url && t.finished ? '<div class="card" style="margin-top:1rem"><p class="eyebrow">Session group</p><a class="btn btn-ghost btn-sm" href="' + esc(t.whatsapp_group_url) + '" target="_blank" rel="noopener">Open the WhatsApp group</a></div>' : '') + '</aside></div>');
+      if (t.finished) {
+        var el = $('#player');
+        if (t.recording_path) sb.storage.from('lms-videos').createSignedUrl(t.recording_path, 3 * 3600).then(function (x) { el.innerHTML = x.error ? L.empty('The recording could not be loaded: ' + L.err(x.error)) : '<video controls controlsList="nodownload" playsinline preload="metadata" src="' + esc(x.data.signedUrl) + '"></video>'; });
+        else if (t.replay_url) el.innerHTML = '<iframe src="' + esc(L.embedUrl(t.replay_url)) + '" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
+        else el.innerHTML = L.empty('The recording is being prepared and appears here within 24 hours of the session.');
+      }
+      var form = $('#fb-form');
+      if (form) form.addEventListener('submit', function (e) {
+        e.preventDefault(); var f = L.formData(form), st = $('#fb-st');
+        if (!/^https?:\/\/([a-z]+\.)?linkedin\.com\//i.test(f.linkedin_url)) { st.textContent = 'Enter the address of your LinkedIn profile (it starts with https://www.linkedin.com/in/).'; st.className = 'status is-error'; return; }
+        st.textContent = 'Saving…'; st.className = 'status';
+        sb.from('training_feedback').insert({ session_slug: slug, user_id: session.user.id, rating: Number(f.rating), feedback: f.feedback, linkedin_url: f.linkedin_url, consent_publish: !!f.consent_publish }).then(function (x) {
+          if (x.error) { st.textContent = L.err(x.error); st.className = 'status is-error'; return; }
+          logEvent('training_feedback', { session: slug }); L.toast('Thank you. Your certificate is unlocked.', 'ok'); trainingSessionPage(slug);
+        });
+      });
+      var cert = $('#cert');
+      if (cert) cert.addEventListener('click', function () {
+        var st = $('#cert-st'); cert.disabled = true; st.textContent = 'Preparing your certificate…'; st.className = 'status';
+        sb.auth.getSession().then(function (s) { return fetch(L.cfg.functionsUrl + '/payments/certificate?session=' + encodeURIComponent(slug), { headers: { Authorization: 'Bearer ' + s.data.session.access_token, apikey: L.cfg.anonKey } }); })
+          .then(function (res) { if (!res.ok) return res.json().then(function (j) { throw new Error(j.error || 'Could not prepare the certificate.'); }); return res.blob(); })
+          .then(function (blob) { var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'VIDIKSHA-certificate-' + slug + '.pdf'; a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000); st.textContent = ''; cert.disabled = false; logEvent('certificate_downloaded', { session: slug }); if (!t.certificate_no) trainingSessionPage(slug); })
+          .catch(function (err) { st.textContent = L.err(err); st.className = 'status is-error'; cert.disabled = false; });
+      });
+    });
+  }
+
   /* ------------------------------------------------------------ notices, messages, profile */
   function noticeHtml(n) {
     var aud = n.audience === 'all' ? '' : n.audience.indexOf('batch:') === 0 ? (function () { var k = Object.keys(batches).filter(function (s) { return batches[s].id === n.audience.slice(6); })[0]; return k ? L.courseName(k) + ' · ' + batches[k].name : 'your batch'; })() : L.courseName(n.audience);
@@ -391,7 +456,7 @@
   /* ------------------------------------------------------------ routing */
   var routes = L.router({
     '': dashboard, 'courses': coursesPage, 'course/:slug': function (p, q) { coursePage(p.slug, q); }, 'lecture/:id': function (p) { lecturePage(p.id); },
-    'assignment/:id': function (p) { assignmentPage(p.id); }, 'notices': noticesPage, 'messages': messagesPage, 'profile': profilePage
+    'assignment/:id': function (p) { assignmentPage(p.id); }, 'training': trainingPage, 'training/:slug': function (p) { trainingSessionPage(p.slug); }, 'notices': noticesPage, 'messages': messagesPage, 'profile': profilePage
   }, function () { L.render(L.empty('Page not found.')); });
   var recoveryMode = false;
   function route() {

@@ -28,6 +28,7 @@
 
 import { buildInvoicePdf, toBase64 } from "./invoice.ts";
 import { sendMail, type WelcomeMail } from "./email.ts";
+import { buildCertificatePdf } from "./certificate.ts";
 
 const env = (k: string, d = "") => Deno.env.get(k) ?? d;
 const SUPABASE_URL = env("SUPABASE_URL");
@@ -245,32 +246,76 @@ async function invoiceDownload(req: Request, origin: string | null) {
   return new Response(pdf, { status: 200, headers: { ...cors(origin), "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="VIDIKSHA-invoice-${e.invoice_no.replace(/\//g, "-")}.pdf"`, "Cache-Control": "private, no-store" } });
 }
 
-/** POST /register-session: a live-training registration from the website. No account, no email: the row goes into
- *  training_registrations (linked to an existing account when the email has one) and the Google Sheet, and the
- *  session's WhatsApp group link comes back for the thank-you message. */
+/** POST /register-session: a live-training registration from the website. Creates the registrant's VIDIKSHA account
+ *  (email confirmed, no email sent) with the password they chose, or links an existing account by email; stores the
+ *  row in training_registrations and the Google Sheet; returns the session's WhatsApp group link. No course access. */
 async function registerSession(req: Request, origin: string | null) {
   const b = await req.json().catch(() => ({})) as Json;
   const f = {
     session_slug: clean(b.session_slug, 120), full_name: clean(b.full_name, 120), email: clean(b.email, 200).toLowerCase(),
     whatsapp: clean(b.whatsapp, 30), profession: clean(b.profession, 80), qualification: clean(b.qualification, 80),
   };
+  const password = String(b.password ?? "");
   if (!f.session_slug || f.full_name.length < 2 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email) || !/^\+?[0-9][0-9 \-]{7,16}$/.test(f.whatsapp) || !f.profession || !f.qualification) {
     return json({ error: "Please complete every field. The WhatsApp number needs a country code." }, 400, origin);
   }
+  if (password.length < 8) return json({ error: "Choose a password of at least 8 characters." }, 400, origin);
   const sessions = await db(`training_sessions?slug=eq.${encodeURIComponent(f.session_slug)}&select=slug,title,starts_at,whatsapp_group_url`);
   const s = sessions?.[0];
   const title = s?.title || clean(b.session_title, 200) || f.session_slug;
   const date = s ? new Date(s.starts_at).toLocaleDateString("sv-SE", { timeZone: "Asia/Kolkata" }) : (clean(b.session_date, 10) || null);
   const whatsapp = s?.whatsapp_group_url || env("TRAINING_WHATSAPP_GROUP") || null;
 
-  const existing = await db(`training_registrations?session_slug=eq.${encodeURIComponent(f.session_slug)}&email=ilike.${encodeURIComponent(f.email)}&select=id`);
-  if (existing?.length) return json({ ok: true, already: true, whatsapp }, 200, origin);
-
-  let userId: string | null = null;
+  // Account: create it, or match the existing one (checking the password so the registrant can sign in afterwards).
+  let userId: string | null = null, account = "created";
   try { userId = await rpc("find_user_id_by_email", { addr: f.email }); } catch (e) { console.error("user lookup", String(e)); }
-  await db("training_registrations", { method: "POST", body: JSON.stringify({ user_id: userId, session_slug: f.session_slug, session_title: title, session_date: date, full_name: f.full_name, email: f.email, whatsapp: f.whatsapp, profession: f.profession, qualification: f.qualification }) });
-  await sendToSheet({ session_title: title, session_date: date, full_name: f.full_name, email: f.email, whatsapp: f.whatsapp, profession: f.profession, qualification: f.qualification, account_status: userId ? "existing account" : "registered without account", source: "website" });
-  return json({ ok: true, whatsapp }, 200, origin);
+  if (userId) {
+    const t = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: env("SUPABASE_ANON_KEY"), "Content-Type": "application/json" }, body: JSON.stringify({ email: f.email, password }) });
+    account = t.ok ? "existing" : "existing, password differs";
+  } else {
+    try {
+      const user = await authAdmin("users", { method: "POST", body: JSON.stringify({ email: f.email, password, email_confirm: true, user_metadata: { full_name: f.full_name, whatsapp: f.whatsapp, profession: f.profession, qualification: f.qualification, role: f.profession, source: "live-training", register_session: f.session_slug, register_session_title: title, register_session_date: date } }) });
+      userId = user.id as string;
+    } catch (e) { console.error("account", String(e)); account = "not created"; }
+  }
+
+  const existing = await db(`training_registrations?session_slug=eq.${encodeURIComponent(f.session_slug)}&email=ilike.${encodeURIComponent(f.email)}&select=id,user_id`);
+  if (existing?.length) {
+    if (userId && !existing[0].user_id) await db(`training_registrations?id=eq.${existing[0].id}`, { method: "PATCH", body: JSON.stringify({ user_id: userId }) });
+    return json({ ok: true, already: true, whatsapp, account, portal: PORTAL_URL || null }, 200, origin);
+  }
+  try {
+    await db("training_registrations", { method: "POST", body: JSON.stringify({ user_id: userId, session_slug: f.session_slug, session_title: title, session_date: date, full_name: f.full_name, email: f.email, whatsapp: f.whatsapp, profession: f.profession, qualification: f.qualification }) });
+  } catch (e) {
+    // The sign-up trigger may already have written the row from the metadata (older behaviour); treat a duplicate as done.
+    if (!/duplicate|unique/i.test(String(e))) throw e;
+  }
+  await sendToSheet({ session_title: title, session_date: date, full_name: f.full_name, email: f.email, whatsapp: f.whatsapp, profession: f.profession, qualification: f.qualification, account_status: account === "created" ? "new account created" : account === "existing" ? "existing account" : account, source: "website" });
+  return json({ ok: true, whatsapp, account, portal: PORTAL_URL || null }, 200, origin);
+}
+
+/** GET /certificate?session=<slug>, with the registrant's own session token: their participation certificate PDF.
+ *  Available once the session is over, attendance is not marked absent, and feedback has been given. */
+async function certificateDownload(req: Request, origin: string | null) {
+  const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
+  if (!token) return json({ error: "Sign in to download the certificate." }, 401, origin);
+  const u = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${token}` } });
+  if (!u.ok) return json({ error: "Sign in to download the certificate." }, 401, origin);
+  const user = await u.json();
+  const slug = clean(new URL(req.url).searchParams.get("session"), 120);
+  const regs = await db(`training_registrations?session_slug=eq.${encodeURIComponent(slug)}&or=(user_id.eq.${user.id},email.ilike.${encodeURIComponent(String(user.email))})&select=*`);
+  const r = regs?.[0];
+  if (!r) return json({ error: "You are not registered for this session." }, 404, origin);
+  const sess = (await db(`training_sessions?slug=eq.${encodeURIComponent(slug)}&select=title,starts_at,duration_min`))?.[0];
+  if (!sess) return json({ error: "Session not found." }, 404, origin);
+  const ends = new Date(new Date(sess.starts_at).getTime() + (Number(sess.duration_min) || 180) * 60000);
+  if (ends > new Date()) return json({ error: "The certificate is available after the session." }, 409, origin);
+  if (r.attended === false) return json({ error: "Our records show you did not attend this session. Write to team@vidiksha.in if that is wrong." }, 409, origin);
+  const fb = await db(`training_feedback?session_slug=eq.${encodeURIComponent(slug)}&user_id=eq.${user.id}&select=id`);
+  if (!fb?.length) return json({ error: "Please share your feedback first; the certificate unlocks right after." }, 409, origin);
+  const no = r.certificate_no || await rpc("assign_certificate_number", { reg_id: r.id });
+  const pdf = buildCertificatePdf({ certificateNo: no, name: r.full_name, sessionTitle: sess.title, sessionDate: new Date(sess.starts_at), durationMin: Number(sess.duration_min) || 180, issuedAt: new Date(r.certificate_issued_at || Date.now()), issuer: SELLER.name, website: SITE_URL.replace(/^https?:\/\//, "") });
+  return new Response(pdf, { status: 200, headers: { ...cors(origin), "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="VIDIKSHA-certificate-${no.replace(/\//g, "-")}.pdf"`, "Cache-Control": "private, no-store" } });
 }
 
 /* ---- routes ---- */
@@ -355,6 +400,7 @@ Deno.serve(async (req) => {
     if (path.endsWith("/retry") && req.method === "POST") return await retry(req, origin);
     if (path.endsWith("/invoice") && req.method === "GET") return await invoiceDownload(req, origin);
     if (path.endsWith("/register-session") && req.method === "POST") return await registerSession(req, origin);
+    if (path.endsWith("/certificate") && req.method === "GET") return await certificateDownload(req, origin);
     if (path.endsWith("/status")) return json({ ok: true, razorpay: !!(RZP_KEY_ID && RZP_KEY_SECRET), webhook: !!RZP_WEBHOOK_SECRET, sheet: !!SHEET_URL, email: !!RESEND_KEY, gstin: !!SELLER.gstin, portal: PORTAL_URL || null }, 200, origin);
     return json({ error: "Not found" }, 404, origin);
   } catch (e) {

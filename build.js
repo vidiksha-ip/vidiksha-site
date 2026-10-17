@@ -58,7 +58,9 @@ function loadContent() {
   const upcoming = webinars.filter((w) => !w.isPast).sort((a, b) => (a.datetime < b.datetime ? -1 : 1));
   const past = webinars.filter((w) => w.isPast).sort((a, b) => (a.datetime < b.datetime ? 1 : -1));
 
-  return { site, posts, courses, webinars: { upcoming, past } };
+  const tFile = path.join(CONTENT, 'testimonials.json');
+  const testimonials = fs.existsSync(tFile) ? readJSON(tFile) : [];   // written by the control panel from consented feedback
+  return { site, posts, courses, webinars: { upcoming, past }, testimonials };
 }
 
 function copyAssets() {
