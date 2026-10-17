@@ -357,6 +357,14 @@ async function createOrder(req: Request, origin: string | null) {
   const prices = await db(`course_prices?slug=eq.${encodeURIComponent(f.course_slug)}&active=is.true&select=slug,title,price_inr`);
   const course = prices?.[0];
   if (!course) return json({ error: "This course is not open for enrolment." }, 404, origin);
+  try {
+    const win = (await rpc("enrolment_window", { slug: f.course_slug }))?.[0];
+    if (win && win.has_batch && !win.enrolling) {
+      const ist = (d: string) => new Date(d + "T00:00:00+05:30").toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kolkata" });
+      const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Kolkata" });
+      return json({ error: win.enrol_from && win.enrol_from > today ? `Enrolment for ${win.batch_name} opens on ${ist(win.enrol_from)}.` : `Enrolment for ${win.batch_name} closed on ${ist(win.enrol_until)}. The next batch will be announced on vidiksha.in.` }, 409, origin);
+    }
+  } catch (e) { console.error("enrolment window", String(e)); }
 
   const receipt = `enr_${crypto.randomUUID().replace(/-/g, "").slice(0, 20)}`;
   const orderRes = await fetch("https://api.razorpay.com/v1/orders", {

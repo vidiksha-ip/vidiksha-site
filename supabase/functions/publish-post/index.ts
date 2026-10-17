@@ -98,7 +98,10 @@ Deno.serve(async (req) => {
       const course = cr.ok ? (await cr.json())[0] : null;
       if (!course) return json({ error: "No such course in the database." }, 404, origin);
       const lectures = lr.ok ? await lr.json() : [];
+      const br = await fetch(`${SUPABASE_URL}/rest/v1/batches?course_slug=eq.${cslug}&is_open=is.true&select=name,enrol_from,enrol_until&limit=1`, { headers: h });
+      const open = br.ok ? (await br.json())[0] : null;
       const file = {
+        batchName: open?.name ?? undefined, enrolFrom: open?.enrol_from ?? undefined, enrolUntil: open?.enrol_until ?? undefined,
         order: course.sort_order ?? 99, featured: !!course.featured, title: course.title, subtitle: course.subtitle ?? "", area: course.area ?? "", level: course.level ?? "",
         duration: course.duration ?? "", unit: course.unit ?? "modules", unitNote: course.unit_note ?? "", price: Number(course.price_inr), enrolOpen: !!course.enrol_open,
         summary: course.summary ?? "", outcomes: course.outcomes ?? [], about: course.about ?? [],

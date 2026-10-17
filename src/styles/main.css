@@ -525,3 +525,5 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 2.5rem 0; }
 .testimonial blockquote p::after { content: '\201D'; color: var(--accent); }
 .testimonial figcaption { font-size: 0.85rem; display: flex; flex-direction: column; gap: 0.15rem; margin-top: auto; }
 .testimonial figcaption a { color: var(--accent); }
+
+.btn.is-disabled, .btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
