@@ -26,7 +26,7 @@
   }
 
   /* ------------------------------------------------------------ shell */
-  var NAV = [['', 'Overview'], ['students', 'Students'], ['enrolments', 'Enrolments'], ['invoices', 'Invoices'], ['training', 'Training sessions'], ['courses', 'Course content'], ['grading', 'Grading'], ['notices', 'Announcements'], ['messages', 'Messages'], ['blog', 'Blog posts'], ['team', 'Team']];
+  var NAV = [['', 'Overview'], ['students', 'Students'], ['enrolments', 'Enrolments'], ['invoices', 'Invoices'], ['training', 'Training sessions'], ['feedbacks', 'Feedbacks'], ['courses', 'Course content'], ['grading', 'Grading'], ['notices', 'Announcements'], ['messages', 'Messages'], ['blog', 'Blog posts'], ['team', 'Team']];
   function shell() {
     var name = me.full_name || session.user.email;
     app.innerHTML = '<div class="shell"><aside class="sidebar"><a class="brand" href="#/">VIDIKSHA<small>Control panel</small></a><nav class="nav" id="nav"></nav><div class="nav-sep"></div><nav class="nav"><a href="' + L.cfg.portalUrl + '" target="_blank" rel="noopener">Learning portal ↗</a><a href="' + L.cfg.siteUrl + '" target="_blank" rel="noopener">vidiksha.in ↗</a><a href="https://supabase.com/dashboard/project/euvlsarftingglxvsuzq" target="_blank" rel="noopener">Supabase ↗</a></nav>' +
@@ -424,6 +424,46 @@
     });
   }
 
+  /* ------------------------------------------------------------ feedbacks */
+  function feedbacks() {
+    L.render(head('Feedbacks', 'Training feedback', 'Every piece of feedback from live training participants, with the certificate issued to them.', '<button class="btn btn-ghost" id="csv">Export CSV</button><button class="btn" id="pub">Publish consented feedback to vidiksha.in</button>') +
+      '<p class="status" id="fb-st"></p><div class="toolbar"><input type="search" id="q" placeholder="Search name, email, text"><select id="session"><option value="">All sessions</option></select><select id="consent"><option value="">Consent: any</option><option value="yes">Consented to publish</option><option value="no">Private</option></select><select id="rating"><option value="">Rating: any</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option></select><select id="cert"><option value="">Certificate: any</option><option value="yes">Issued</option><option value="no">Not issued</option></select></div><div id="tbl">' + L.spinner() + '</div>');
+    var rows = [];
+    function draw() {
+      var s = $('#q').value.toLowerCase(), ss = $('#session').value, c = $('#consent').value, rt = $('#rating').value, ce = $('#cert').value;
+      var list = rows.filter(function (f) { return (!s || [f.full_name, f.email, f.feedback].join(' ').toLowerCase().indexOf(s) >= 0) && (!ss || f.session_slug === ss) && (!c || (c === 'yes') === !!f.consent_publish) && (!rt || String(f.rating) === rt) && (!ce || (ce === 'yes') === !!f.certificate_no); });
+      var avg = list.length ? (list.reduce(function (a, f) { return a + f.rating; }, 0) / list.length).toFixed(1) : '—';
+      $('#tbl').innerHTML = '<p class="muted small">' + list.length + ' feedback' + (list.length === 1 ? '' : 's') + ' · average rating ' + avg + ' · ' + list.filter(function (f) { return f.consent_publish; }).length + ' consented to publication · ' + list.filter(function (f) { return f.certificate_no; }).length + ' certificates issued</p>' + table([
+        { label: 'Date', nowrap: true, get: function (f) { return L.fmtDate(f.created_at); } },
+        { label: 'Participant', html: function (f) { return '<a href="#/student/' + f.user_id + '"><strong>' + esc(f.full_name || f.email) + '</strong></a><span class="sub">' + esc(f.email) + '</span><span class="sub">' + esc([f.profession, f.organisation].filter(Boolean).join(' · ')) + '</span><span class="sub"><a href="' + esc(f.linkedin_url) + '" target="_blank" rel="noopener">LinkedIn ↗</a></span>'; } },
+        { label: 'Session', html: function (f) { return '<a href="#/training/' + encodeURIComponent(f.session_slug) + '">' + esc(f.session_title || f.session_slug) + '</a>' + (f.starts_at ? '<span class="sub">' + esc(L.fmtDate(f.starts_at)) + '</span>' : ''); } },
+        { label: 'Rating', nowrap: true, html: function (f) { return '<strong>' + f.rating + '</strong>/5'; } },
+        { label: 'Feedback', html: function (f) { var t = String(f.feedback || ''); return '<div class="prose small" style="max-width:52ch">' + L.nl2p(t) + '</div><span class="sub">' + t.trim().split(/\s+/).filter(Boolean).length + ' words</span>'; } },
+        { label: 'Publish', nowrap: true, html: function (f) { return f.consent_publish ? '<span class="pill ok">consented</span>' : '<span class="pill">private</span>'; } },
+        { label: 'Certificate', nowrap: true, html: function (f) { return f.certificate_no ? '<strong>' + esc(f.certificate_no) + '</strong><span class="sub">' + esc(L.fmtDate(f.certificate_issued_at)) + '</span><button class="btn btn-ghost btn-sm" data-cert="' + f.registration_id + '" data-no="' + esc(f.certificate_no) + '">View PDF</button>' : (f.attended === false ? '<span class="pill bad">marked absent</span>' : '<span class="pill">not downloaded yet</span>'); } }
+      ], list, 'No feedback yet. Participants leave it in the portal after a session ends.');
+      $$('[data-cert]').forEach(function (b) { b.addEventListener('click', function () {
+        b.disabled = true;
+        sb.auth.getSession().then(function (s2) { return fetch(L.cfg.functionsUrl + '/payments/certificate?reg=' + encodeURIComponent(b.getAttribute('data-cert')), { headers: { Authorization: 'Bearer ' + s2.data.session.access_token, apikey: L.cfg.anonKey } }); })
+          .then(function (res) { if (!res.ok) return res.json().then(function (j) { throw new Error(j.error || 'Could not open the certificate.'); }); return res.blob(); })
+          .then(function (blob) { var u = URL.createObjectURL(blob); window.open(u, '_blank', 'noopener'); setTimeout(function () { URL.revokeObjectURL(u); }, 60000); })
+          .catch(function (e) { L.toast(L.err(e), 'error'); }).then(function () { b.disabled = false; });
+      }); });
+      $('#csv').onclick = function () { L.download('vidiksha-feedback.csv', L.csv(list, [{ label: 'Date', key: 'created_at' }, { label: 'Name', key: 'full_name' }, { label: 'Email', key: 'email' }, { label: 'Profession', key: 'profession' }, { label: 'Organisation', key: 'organisation' }, { label: 'Session', key: 'session_title' }, { label: 'Rating', key: 'rating' }, { label: 'Feedback', key: 'feedback' }, { label: 'LinkedIn', key: 'linkedin_url' }, { label: 'Consent to publish', get: function (f) { return f.consent_publish ? 'yes' : 'no'; } }, { label: 'Certificate', key: 'certificate_no' }, { label: 'Certificate issued', key: 'certificate_issued_at' }])); };
+    }
+    sb.from('training_feedback_overview').select('*').order('created_at', { ascending: false }).then(function (r) {
+      rows = r.data || [];
+      var seen = {}; var opts = rows.filter(function (f) { if (seen[f.session_slug]) return false; seen[f.session_slug] = true; return true; });
+      $('#session').innerHTML = '<option value="">All sessions</option>' + opts.map(function (f) { return '<option value="' + esc(f.session_slug) + '">' + esc(f.session_title || f.session_slug) + '</option>'; }).join('');
+      draw();
+    });
+    ['q', 'session', 'consent', 'rating', 'cert'].forEach(function (i) { $('#' + i).addEventListener('input', draw); $('#' + i).addEventListener('change', draw); });
+    $('#pub').addEventListener('click', function () {
+      var st = $('#fb-st'); st.textContent = 'Publishing testimonials…'; st.className = 'status';
+      sitePublish('testimonials', '').then(function (j) { st.innerHTML = 'Published ' + j.count + ' testimonial' + (j.count === 1 ? '' : 's') + '. <a href="' + esc(j.url) + '" target="_blank" rel="noopener">vidiksha.in/live-training</a> updates in a minute or two.'; st.className = 'status is-ok'; }, function (e) { st.textContent = L.err(e); st.className = 'status is-error'; });
+    });
+  }
+
   /* ------------------------------------------------------------ course content */
   function coursePills(c) {
     return (c.published_on_site ? '<span class="pill ok">on vidiksha.in</span>' : '<span class="pill">not on the website</span>') + ' ' + (c.enrol_open ? '<span class="pill ok">enrolment open · ' + L.fmtInr(c.price_inr) + '</span>' : '<span class="pill">enrolment closed</span>') + (c.active ? '' : ' <span class="pill bad">inactive</span>');
@@ -747,7 +787,7 @@
 
   /* ------------------------------------------------------------ routing */
   var routes = L.router({
-    '': overview, 'students': students, 'student/:id': function (p) { student(p.id); }, 'enrolments': enrolments, 'invoices': invoices, 'training': training, 'training/:slug': function (p) { trainingSession(p.slug); },
+    '': overview, 'students': students, 'student/:id': function (p) { student(p.id); }, 'enrolments': enrolments, 'invoices': invoices, 'training': training, 'training/:slug': function (p) { trainingSession(p.slug); }, 'feedbacks': feedbacks,
     'courses': courses, 'course/:slug': function (p, q) { course(p.slug, q); }, 'lecture/:id': function (p) { lecture(p.id); },
     'grading': grading, 'assignment/:id': function (p, q) { assignment(p.id, q); }, 'notices': notices, 'messages': messages, 'blog': blog, 'team': team
   }, function () { L.render(L.empty('Page not found.')); });

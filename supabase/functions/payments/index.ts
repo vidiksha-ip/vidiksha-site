@@ -308,7 +308,20 @@ async function certificateDownload(req: Request, origin: string | null) {
   const u = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${token}` } });
   if (!u.ok) return json({ error: "Sign in to download the certificate." }, 401, origin);
   const user = await u.json();
-  const slug = clean(new URL(req.url).searchParams.get("session"), 120);
+  const params = new URL(req.url).searchParams;
+  const regParam = clean(params.get("reg"), 20);
+  if (regParam) {
+    // Staff view of an issued certificate.
+    const isStaff = !!(await db(`staff?user_id=eq.${user.id}&select=role`))?.length;
+    if (!isStaff) return json({ error: "Staff only." }, 403, origin);
+    const reg = (await db(`training_registrations?id=eq.${encodeURIComponent(regParam)}&select=*`))?.[0];
+    if (!reg) return json({ error: "No such registration." }, 404, origin);
+    if (!reg.certificate_no) return json({ error: "No certificate has been issued for this registration yet." }, 409, origin);
+    const ss = (await db(`training_sessions?slug=eq.${encodeURIComponent(reg.session_slug)}&select=title,starts_at,duration_min`))?.[0];
+    const pdfS = buildCertificatePdf({ certificateNo: reg.certificate_no, name: reg.full_name, sessionTitle: ss?.title || reg.session_title, sessionDate: new Date(ss?.starts_at || reg.session_date), durationMin: Number(ss?.duration_min) || 180, issuedAt: new Date(reg.certificate_issued_at || Date.now()), issuer: SELLER.name, website: SITE_URL.replace(/^https?:\/\//, "") });
+    return new Response(pdfS, { status: 200, headers: { ...cors(origin), "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="VIDIKSHA-certificate-${reg.certificate_no.replace(/\//g, "-")}.pdf"`, "Cache-Control": "private, no-store" } });
+  }
+  const slug = clean(params.get("session"), 120);
   const regs = await db(`training_registrations?session_slug=eq.${encodeURIComponent(slug)}&or=(user_id.eq.${user.id},email.ilike.${encodeURIComponent(String(user.email))})&select=*`);
   const r = regs?.[0];
   if (!r) return json({ error: "You are not registered for this session." }, 404, origin);

@@ -313,10 +313,10 @@
         (t.finished ? '<div class="player" id="player">' + L.spinner('Loading recording') + '</div>' : '<div class="card"><p class="eyebrow">Before the session</p><p>' + (t.summary ? esc(t.summary) : '') + '</p><p class="muted">The Teams link and reminders are posted in the WhatsApp group. The recording appears here within 24 hours of the session.</p>' + (t.whatsapp_group_url ? '<a class="btn" href="' + esc(t.whatsapp_group_url) + '" target="_blank" rel="noopener">Open the WhatsApp group</a>' : '') + '</div>') +
         (t.finished ? '<div class="section"><div class="section-head"><h2>' + (fb ? 'Your feedback' : 'Share your feedback') + '</h2></div>' +
           (fb ? '<div class="card"><p class="muted small">Submitted ' + esc(L.fmtDate(fb.created_at)) + ' · rated ' + fb.rating + ' of 5' + (fb.consent_publish ? ' · may be published on vidiksha.in' : ' · private') + '</p><div class="prose">' + L.nl2p(fb.feedback) + '</div><p class="small"><a href="' + esc(fb.linkedin_url) + '" target="_blank" rel="noopener">' + esc(fb.linkedin_url) + '</a></p></div>'
-            : '<form class="form card" id="fb-form"><p class="muted" style="margin:0">Feedback is required before the participation certificate can be downloaded. It helps us plan the next session.</p>' +
+            : '<form class="form card" id="fb-form"><p class="muted" style="margin:0">Feedback of at least 100 words and your LinkedIn profile are required before the participation certificate can be downloaded. It helps us plan the next session.</p>' +
               L.field('How useful was the session?', '<select name="rating" required><option value="">Choose</option><option value="5">5 · Excellent</option><option value="4">4 · Very good</option><option value="3">3 · Good</option><option value="2">2 · Fair</option><option value="1">1 · Poor</option></select>') +
-              L.field('Your feedback (what worked, what you would change, what you will do differently at work)', '<textarea name="feedback" required minlength="40" placeholder="At least a few sentences"></textarea>') +
-              L.field('Your LinkedIn profile link', '<input type="url" name="linkedin_url" required placeholder="https://www.linkedin.com/in/your-name">') +
+              L.field('Your feedback: at least 100 words (what worked, what you would change, what you will do differently at work)', '<textarea name="feedback" required placeholder="At least 100 words" style="min-height:180px"></textarea><span class="fine" id="fb-words">0 words · 100 needed</span>') +
+              L.field('Your LinkedIn profile link (required)', '<input type="url" name="linkedin_url" required placeholder="https://www.linkedin.com/in/your-name">') +
               '<label class="check"><input type="checkbox" name="consent_publish"> I consent to VIDIKSHA publishing this feedback with my name, profession and LinkedIn profile on vidiksha.in</label>' +
               '<div><button class="btn" type="submit">Submit feedback</button></div><p class="status" id="fb-st"></p></form>') + '</div>' : '') +
         '</div><aside><div class="card"><p class="eyebrow">Participation certificate</p>' +
@@ -329,9 +329,12 @@
         else el.innerHTML = L.empty('The recording is being prepared and appears here within 24 hours of the session.');
       }
       var form = $('#fb-form');
+      var words = function (t) { return String(t || '').trim().split(/\s+/).filter(Boolean).length; };
+      if (form) { form.feedback.addEventListener('input', function () { var n = words(form.feedback.value); $('#fb-words').textContent = n + ' word' + (n === 1 ? '' : 's') + (n < 100 ? ' · ' + (100 - n) + ' more needed' : ' · thank you'); }); }
       if (form) form.addEventListener('submit', function (e) {
         e.preventDefault(); var f = L.formData(form), st = $('#fb-st');
-        if (!/^https?:\/\/([a-z]+\.)?linkedin\.com\//i.test(f.linkedin_url)) { st.textContent = 'Enter the address of your LinkedIn profile (it starts with https://www.linkedin.com/in/).'; st.className = 'status is-error'; return; }
+        if (words(f.feedback) < 100) { st.textContent = 'Please write at least 100 words; you have ' + words(f.feedback) + '.'; st.className = 'status is-error'; return; }
+        if (!/^https?:\/\/([a-z0-9-]+\.)?linkedin\.com\//i.test(f.linkedin_url)) { st.textContent = 'Your LinkedIn profile link is required (it starts with https://www.linkedin.com/in/).'; st.className = 'status is-error'; return; }
         st.textContent = 'Saving…'; st.className = 'status';
         sb.from('training_feedback').insert({ session_slug: slug, user_id: session.user.id, rating: Number(f.rating), feedback: f.feedback, linkedin_url: f.linkedin_url, consent_publish: !!f.consent_publish }).then(function (x) {
           if (x.error) { st.textContent = L.err(x.error); st.className = 'status is-error'; return; }
