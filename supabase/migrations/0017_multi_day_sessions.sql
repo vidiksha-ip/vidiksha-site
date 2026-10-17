@@ -16,7 +16,8 @@ language sql stable as $$
     s.starts_at + make_interval(mins => coalesce(s.duration_min, 180)));
 $$;
 
-create or replace view public.my_training with (security_invoker = true) as
+drop view if exists public.my_training;
+create view public.my_training with (security_invoker = true) as
 select r.id as registration_id, r.session_slug, coalesce(s.title, r.session_title) as title, s.summary, s.starts_at, s.duration_min, s.days, s.platform,
        s.replay_url, s.recording_path, s.whatsapp_group_url, r.attended, r.certificate_no, r.created_at as registered_at,
        public.session_ends_at(s) < now() as finished,
