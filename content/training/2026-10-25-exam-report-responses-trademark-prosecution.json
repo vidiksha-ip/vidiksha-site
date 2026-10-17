@@ -7,6 +7,16 @@
   "area": "Trademark",
   "datetime": "2026-10-25T16:00:00+05:30",
   "duration": 180,
+  "days": [
+    {
+      "datetime": "2026-10-25T16:00:00+05:30",
+      "duration": 180
+    },
+    {
+      "datetime": "2026-10-26T16:00:00+05:30",
+      "duration": 180
+    }
+  ],
   "price": 0,
   "platform": "Microsoft Teams"
 }
