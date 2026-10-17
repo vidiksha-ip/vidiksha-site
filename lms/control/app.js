@@ -230,24 +230,63 @@
 
   /* ------------------------------------------------------------ enrolments & training */
   function enrolments() {
-    L.render(head('Enrolments', 'Course enrolments', 'Every purchase attempt. Paid rows also appear in the Google Sheet.', '<button class="btn btn-ghost" id="csv">Export CSV</button>') +
-      '<div class="toolbar"><input type="search" id="q" placeholder="Search"><select id="filter"><option value="">All</option><option value="paid">Paid</option><option value="created">Started, not paid</option><option value="failed">Failed</option></select><select id="course"><option value="">All courses</option>' + Object.keys(COURSES).map(function (s) { return '<option value="' + s + '">' + esc(COURSES[s]) + '</option>'; }).join('') + '</select></div><div id="tbl">' + L.spinner() + '</div>');
-    var rows = [];
+    L.render(head('Enrolments', 'Course enrolments', 'Every purchase attempt with the student’s batch and progress. Paid rows also appear in the Google Sheet.', '<button class="btn btn-ghost" id="csv">Export CSV</button>') +
+      '<div class="toolbar"><input type="search" id="q" placeholder="Search name, email, invoice, payment"><select id="filter"><option value="paid">Paid</option><option value="">All attempts</option><option value="created">Started, not paid</option><option value="failed">Failed</option></select><select id="course"><option value="">All courses</option>' + Object.keys(COURSES).map(function (s) { return '<option value="' + s + '">' + esc(COURSES[s]) + '</option>'; }).join('') + '</select><select id="batch"><option value="">All batches</option></select><select id="sort"><option value="date">Newest first</option><option value="course">By course, then batch</option><option value="batch">By batch</option><option value="progress">Progress, highest first</option><option value="progress-asc">Progress, lowest first</option><option value="name">By name</option></select><select id="elig"><option value="">Certificate: any</option><option value="yes">Eligible only</option><option value="no">Not yet eligible</option></select></div><div id="tbl">' + L.spinner() + '</div>');
+    var rows = [], batches = [], roster = {}, lecturesBy = {}, progressBy = {};
+    function stats(r) {
+      var lecs = lecturesBy[r.course_slug] || [], prog = (r.user_id && progressBy[r.user_id]) || {};
+      var total = lecs.length, done = 0, secs = 0, totalMin = 0;
+      lecs.forEach(function (l) { var p = prog[l.id]; totalMin += l.duration_min || 0; if (p) { if (p.completed) done++; secs += Math.min(p.seconds || 0, (l.duration_min || 0) * 60 || Infinity); } });
+      var pct = total ? Math.round(done * 100 / total) : 0;
+      return { total: total, done: done, hours: Math.round(secs / 360) / 10, totalHours: Math.round(totalMin / 6) / 10, pct: pct, eligible: total > 0 && done === total };
+    }
+    function batchOptions() {
+      var c = $('#course').value, sel = $('#batch'), cur = sel.value;
+      sel.innerHTML = '<option value="">All batches</option>' + batches.filter(function (b) { return !c || b.course_slug === c; }).map(function (b) { return '<option value="' + b.id + '"' + (b.id === cur ? ' selected' : '') + '>' + (c ? '' : esc(L.courseName(b.course_slug)) + ' · ') + esc(b.name) + (b.is_open ? ' (open)' : '') + '</option>'; }).join('');
+    }
     function draw() {
-      var s = $('#q').value.toLowerCase(), f = $('#filter').value, c = $('#course').value;
-      var list = rows.filter(function (r) { return (!s || [r.full_name, r.email, r.whatsapp, r.invoice_no, r.razorpay_payment_id].join(' ').toLowerCase().indexOf(s) >= 0) && (!f || r.status === f) && (!c || r.course_slug === c); });
-      $('#tbl').innerHTML = '<p class="muted small">' + list.length + ' rows · ' + L.fmtInr(list.filter(function (r) { return r.status === 'paid'; }).reduce(function (a, r) { return a + Number(r.amount_inr); }, 0)) + ' paid</p>' + table([
+      var s = $('#q').value.toLowerCase(), f = $('#filter').value, c = $('#course').value, b = $('#batch').value, sort = $('#sort').value, el = $('#elig').value;
+      var list = rows.filter(function (r) {
+        var rb = r.user_id && roster[r.user_id + '|' + r.course_slug];
+        return (!s || [r.full_name, r.email, r.whatsapp, r.invoice_no, r.razorpay_payment_id].join(' ').toLowerCase().indexOf(s) >= 0) && (!f || r.status === f) && (!c || r.course_slug === c) && (!b || (rb && rb.batch_id === b)) && (!el || (r.status === 'paid' && (el === 'yes') === r.st.eligible));
+      });
+      var bname = function (r) { var rb = r.user_id && roster[r.user_id + '|' + r.course_slug]; return (rb && rb.batch_name) || ''; };
+      list.sort(function (x, y) {
+        if (sort === 'course') return (x.course_title + bname(x)).localeCompare(y.course_title + bname(y)) || (y.created_at > x.created_at ? 1 : -1);
+        if (sort === 'batch') return (bname(x) || '~').localeCompare(bname(y) || '~') || x.course_title.localeCompare(y.course_title);
+        if (sort === 'progress') return y.st.pct - x.st.pct || y.st.hours - x.st.hours;
+        if (sort === 'progress-asc') return x.st.pct - y.st.pct || x.st.hours - y.st.hours;
+        if (sort === 'name') return String(x.full_name).localeCompare(String(y.full_name));
+        return (y.paid_at || y.created_at) > (x.paid_at || x.created_at) ? 1 : -1;
+      });
+      var paid = list.filter(function (r) { return r.status === 'paid'; });
+      $('#tbl').innerHTML = '<p class="muted small">' + list.length + ' rows · ' + L.fmtInr(paid.reduce(function (a, r) { return a + Number(r.amount_inr); }, 0)) + ' paid · ' + paid.filter(function (r) { return r.st.eligible; }).length + ' eligible for a certificate</p>' + table([
         { label: 'When', nowrap: true, html: function (r) { return esc(L.fmtDate(r.paid_at || r.created_at)) + '<span class="sub">' + esc(new Date(r.paid_at || r.created_at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })) + '</span>' + pillStatus(r.status); } },
         { label: 'Buyer', html: function (r) { return (r.user_id ? '<a href="#/student/' + r.user_id + '"><strong>' + esc(r.full_name) + '</strong></a>' : '<strong>' + esc(r.full_name) + '</strong>') + '<span class="sub">' + esc(r.email) + '</span><span class="sub">' + esc(r.whatsapp || '') + (r.profession ? ' · ' + esc(r.profession) : '') + (r.organisation ? ' · ' + esc(r.organisation) : '') + '</span>'; } },
-        { label: 'Course', html: function (r) { return esc(r.course_title) + '<span class="sub">' + L.fmtInr(r.amount_inr) + (r.invoice_no ? ' · ' + esc(r.invoice_no) : '') + '</span>'; } },
-        { label: 'Payment', html: function (r) { return r.razorpay_payment_id ? '<span class="mono">' + esc(r.razorpay_payment_id) + '</span><span class="sub">' + esc(r.payment_method || '') + '</span>' : '<span class="muted small">not completed</span><span class="sub mono">' + esc(r.razorpay_order_id || '') + '</span>'; } },
+        { label: 'Course · batch', html: function (r) { var bn = bname(r); return esc(r.course_title) + '<span class="sub">' + (bn ? esc(bn) : (r.status === 'paid' ? '<span class="pill warn">no batch</span>' : '')) + '</span><span class="sub">' + L.fmtInr(r.amount_inr) + (r.invoice_no ? ' · ' + esc(r.invoice_no) : '') + (r.razorpay_payment_id ? ' · <span class="mono">' + esc(r.razorpay_payment_id) + '</span>' : '') + (r.payment_method ? ' · ' + esc(r.payment_method) : '') + '</span>'; } },
         { label: 'Kit delivery address', html: function (r) { return esc(r.address_line || '') + '<span class="sub">' + esc([r.city, r.state, r.pincode].filter(Boolean).join(', ')) + '</span>'; } },
+        { label: 'Progress', nowrap: true, html: function (r) { if (r.status !== 'paid') return ''; var t = r.st; if (!t.total) return '<span class="muted small">no sessions yet</span>'; return '<strong>' + t.done + ' / ' + t.total + '</strong> sessions<span class="sub">' + t.hours + ' / ' + t.totalHours + ' h watched</span><span class="sub">' + t.pct + '% completed</span><div class="progress" style="width:110px;margin-top:0.3rem"><i style="width:' + t.pct + '%"></i></div>'; } },
+        { label: 'Certificate', nowrap: true, html: function (r) { if (r.status !== 'paid') return ''; return r.st.eligible ? '<span class="pill ok">eligible</span>' : '<span class="pill">not yet</span><span class="sub">needs 100%</span>'; } },
         { label: 'After payment', html: function (r) { if (r.status !== 'paid') return ''; return (r.account_status ? '<span class="pill ok">account ' + esc(r.account_status) + '</span>' : '<span class="pill warn">no account</span>') + '<span class="sub">' + (r.welcome_sent_at ? 'welcome email sent' : '<span class="pill bad">email not sent</span>') + (r.sheet_sent_at ? ' · in sheet' : '') + '</span>'; } }
       ], list);
+      $('#csv').onclick = function () { L.download('vidiksha-enrolments.csv', L.csv(list, ['created_at', 'paid_at', 'status', 'course_title', 'amount_inr', 'invoice_no', 'full_name', 'email', 'whatsapp', 'profession', 'organisation', 'address_line', 'city', 'state', 'pincode', 'razorpay_payment_id', 'payment_method', 'account_status'].map(function (k) { return { label: k, key: k }; }).concat([{ label: 'batch', get: bname }, { label: 'sessions_completed', get: function (r) { return r.st.done; } }, { label: 'sessions_total', get: function (r) { return r.st.total; } }, { label: 'hours_watched', get: function (r) { return r.st.hours; } }, { label: 'hours_total', get: function (r) { return r.st.totalHours; } }, { label: 'percent_completed', get: function (r) { return r.st.pct; } }, { label: 'certificate_eligible', get: function (r) { return r.st.eligible ? 'yes' : 'no'; } }]))); };
     }
-    sb.from('course_enrolments').select('*').order('created_at', { ascending: false }).then(function (r) { rows = r.data || []; draw(); });
-    ['q', 'filter', 'course'].forEach(function (i) { $('#' + i).addEventListener('input', draw); $('#' + i).addEventListener('change', draw); });
-    $('#csv').addEventListener('click', function () { L.download('vidiksha-enrolments.csv', L.csv(rows, ['created_at', 'paid_at', 'status', 'course_title', 'amount_inr', 'invoice_no', 'full_name', 'email', 'whatsapp', 'profession', 'organisation', 'address_line', 'city', 'state', 'pincode', 'razorpay_order_id', 'razorpay_payment_id', 'payment_method', 'account_status'].map(function (k) { return { label: k, key: k }; }))); });
+    Promise.all([
+      sb.from('course_enrolments').select('*').order('created_at', { ascending: false }),
+      sb.from('batches').select('id, course_slug, name, is_open').order('starts_on', { ascending: false }),
+      sb.from('course_roster').select('user_id, course_slug, batch_id, batch_name'),
+      sb.from('lectures').select('id, course_slug, duration_min'),
+      sb.from('lecture_progress').select('user_id, lecture_id, seconds, completed')
+    ]).then(function (r) {
+      rows = r[0].data || []; batches = r[1].data || [];
+      (r[2].data || []).forEach(function (x) { roster[x.user_id + '|' + x.course_slug] = x; });
+      (r[3].data || []).forEach(function (l) { (lecturesBy[l.course_slug] = lecturesBy[l.course_slug] || []).push(l); });
+      (r[4].data || []).forEach(function (p) { (progressBy[p.user_id] = progressBy[p.user_id] || {})[p.lecture_id] = p; });
+      rows.forEach(function (x) { x.st = stats(x); });
+      batchOptions(); draw();
+    });
+    ['q', 'filter', 'batch', 'sort', 'elig'].forEach(function (i) { $('#' + i).addEventListener('input', draw); $('#' + i).addEventListener('change', draw); });
+    $('#course').addEventListener('change', function () { batchOptions(); draw(); });
   }
   function sessionDialog(s) {
     var isNew = !s.slug;
