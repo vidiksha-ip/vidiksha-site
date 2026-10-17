@@ -1,4 +1,7 @@
 {
+  "batchName": "Batch 1",
+  "enrolFrom": "2026-10-17",
+  "enrolUntil": "2026-11-01",
   "order": 1,
   "featured": true,
   "title": "Trademark Prosecution in Practice",
@@ -8,7 +11,7 @@
   "duration": "20 hours",
   "unit": "sessions",
   "unitNote": "2 hours each, recorded",
-  "price": 5999,
+  "price": 6999,
   "enrolOpen": true,
   "summary": "The complete prosecution cycle in ten two-hour sessions, all recorded. Half the course is the pre-filing search most juniors are never taught properly; the other half is the examination report, the written submission and the hearing. Ten practice exercises, email support throughout, and a community of IP professionals.",
   "outcomes": [
