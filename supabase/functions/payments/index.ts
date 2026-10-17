@@ -266,24 +266,27 @@ async function registerSession(req: Request, origin: string | null) {
   const date = s ? new Date(s.starts_at).toLocaleDateString("sv-SE", { timeZone: "Asia/Kolkata" }) : (clean(b.session_date, 10) || null);
   const whatsapp = s?.whatsapp_group_url || env("TRAINING_WHATSAPP_GROUP") || null;
 
-  // Account: create it, or match the existing one (checking the password so the registrant can sign in afterwards).
+  // Already registered with this email? Say so (and link the row to the account if it has one now).
+  const existing = await db(`training_registrations?session_slug=eq.${encodeURIComponent(f.session_slug)}&email=ilike.${encodeURIComponent(f.email)}&select=id,user_id`);
   let userId: string | null = null, account = "created";
   try { userId = await rpc("find_user_id_by_email", { addr: f.email }); } catch (e) { console.error("user lookup", String(e)); }
+  if (existing?.length) {
+    if (userId && !existing[0].user_id) await db(`training_registrations?id=eq.${existing[0].id}`, { method: "PATCH", body: JSON.stringify({ user_id: userId }) });
+    return json({ ok: true, already: true, whatsapp, account: userId ? "existing" : "none", portal: PORTAL_URL || null }, 200, origin);
+  }
+
+  // Account: create it, or match the existing one (checking the password so the registrant can sign in afterwards).
   if (userId) {
     const t = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: env("SUPABASE_ANON_KEY"), "Content-Type": "application/json" }, body: JSON.stringify({ email: f.email, password }) });
     account = t.ok ? "existing" : "existing, password differs";
   } else {
     try {
-      const user = await authAdmin("users", { method: "POST", body: JSON.stringify({ email: f.email, password, email_confirm: true, user_metadata: { full_name: f.full_name, whatsapp: f.whatsapp, profession: f.profession, qualification: f.qualification, role: f.profession, source: "live-training", register_session: f.session_slug, register_session_title: title, register_session_date: date } }) });
+      // No register_session metadata here: the registration row is written below, not by the sign-up trigger.
+      const user = await authAdmin("users", { method: "POST", body: JSON.stringify({ email: f.email, password, email_confirm: true, user_metadata: { full_name: f.full_name, whatsapp: f.whatsapp, profession: f.profession, qualification: f.qualification, role: f.profession, source: "live-training" } }) });
       userId = user.id as string;
     } catch (e) { console.error("account", String(e)); account = "not created"; }
   }
 
-  const existing = await db(`training_registrations?session_slug=eq.${encodeURIComponent(f.session_slug)}&email=ilike.${encodeURIComponent(f.email)}&select=id,user_id`);
-  if (existing?.length) {
-    if (userId && !existing[0].user_id) await db(`training_registrations?id=eq.${existing[0].id}`, { method: "PATCH", body: JSON.stringify({ user_id: userId }) });
-    return json({ ok: true, already: true, whatsapp, account, portal: PORTAL_URL || null }, 200, origin);
-  }
   try {
     await db("training_registrations", { method: "POST", body: JSON.stringify({ user_id: userId, session_slug: f.session_slug, session_title: title, session_date: date, full_name: f.full_name, email: f.email, whatsapp: f.whatsapp, profession: f.profession, qualification: f.qualification }) });
   } catch (e) {
