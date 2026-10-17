@@ -40,6 +40,26 @@ async function staffUser(req: Request) {
 }
 
 const yamlStr = (s: string) => JSON.stringify(String(s ?? "").replace(/\s+/g, " ").trim());
+const decodeContent = (c: string) => new TextDecoder().decode(Uint8Array.from(atob(String(c).replace(/\n/g, "")), (ch) => ch.charCodeAt(0)));
+/** Splits a Markdown file into its front matter (key: value lines, quoted or not) and body. */
+function splitFront(text: string): { front: Record<string, string>; body: string } {
+  const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/.exec(text);
+  if (!m) return { front: {}, body: text };
+  const front: Record<string, string> = {};
+  for (const line of m[1].split(/\r?\n/)) {
+    const kv = /^([A-Za-z_][\w-]*):\s*(.*)$/.exec(line);
+    if (!kv) continue;
+    let v = kv[2].trim();
+    if (/^".*"$/.test(v)) { try { v = JSON.parse(v); } catch { v = v.slice(1, -1); } }
+    else if (/^'.*'$/.test(v)) v = v.slice(1, -1);
+    front[kv[1]] = v;
+  }
+  return { front, body: m[2].replace(/^\r?\n+/, "").replace(/\s+$/, "") };
+}
+function buildPost(f: { title: string; description: string; date: string; category: string; course: string; hidden: boolean }, body: string) {
+  const front = [`---`, `title: ${yamlStr(f.title)}`, `description: ${yamlStr(f.description)}`, `date: ${f.date}`, `category: ${f.category}`, f.course ? `course: ${f.course}` : null, f.hidden ? `draft: true` : null, `---`].filter(Boolean).join("\n");
+  return `${front}\n\n${body.trim()}\n`;
+}
 const slugify = (s: string) => String(s).toLowerCase().replace(/['’]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 const b64 = (s: string) => btoa(String.fromCharCode(...new TextEncoder().encode(s)));
 
@@ -91,6 +111,41 @@ Deno.serve(async (req) => {
       if (!put.ok) { console.error("github", resp); return json({ error: `GitHub refused the commit: ${resp.message ?? put.status}` }, 502, origin); }
       await fetch(`${SUPABASE_URL}/rest/v1/courses?slug=eq.${cslug}`, { method: "PATCH", headers: { ...h, "Content-Type": "application/json" }, body: JSON.stringify({ published_on_site: true, site_published_at: new Date().toISOString() }) });
       return json({ ok: true, slug: cslug, url: `${SITE_URL}/courses/${cslug}/`, commit: resp.commit?.sha }, 200, origin);
+    }
+
+    // Blog post management: list, read, hide/show (draft flag), delete. The site build skips posts with draft: true.
+    if (b.type === "list_posts") {
+      const dir = await gh(`content/blog?ref=${GH_BRANCH}`);
+      if (!dir.ok) return json({ ok: true, posts: [] }, 200, origin);
+      const files = (await dir.json()).filter((f: { name: string }) => f.name.endsWith(".md"));
+      const posts = await Promise.all(files.map(async (f: { name: string; sha: string }) => {
+        const r = await gh(`content/blog/${f.name}?ref=${GH_BRANCH}`);
+        const meta = await r.json();
+        const { front } = splitFront(decodeContent(meta.content));
+        return { slug: f.name.replace(/\.md$/, ""), title: front.title ?? f.name, description: front.description ?? "", date: front.date ?? "", category: front.category ?? "", course: front.course ?? "", hidden: String(front.draft) === "true" };
+      }));
+      posts.sort((a, b2) => (a.date < b2.date ? 1 : -1));
+      return json({ ok: true, posts }, 200, origin);
+    }
+    if (b.type === "get_post" || b.type === "delete_post" || b.type === "set_post_hidden") {
+      const pslug = slugify(String(b.slug ?? ""));
+      if (!pslug) return json({ error: "Post slug is required." }, 400, origin);
+      const ppath = `content/blog/${pslug}.md`;
+      const cur = await gh(`${ppath}?ref=${GH_BRANCH}`);
+      if (!cur.ok) return json({ error: `No post with the slug "${pslug}".` }, 404, origin);
+      const meta = await cur.json();
+      const { front, body: pbody } = splitFront(decodeContent(meta.content));
+      if (b.type === "get_post") return json({ ok: true, slug: pslug, title: front.title ?? "", description: front.description ?? "", date: front.date ?? "", category: front.category ?? "", course: front.course ?? "", hidden: String(front.draft) === "true", body: pbody }, 200, origin);
+      if (b.type === "delete_post") {
+        const del = await gh(ppath, { method: "DELETE", body: JSON.stringify({ message: `Delete blog post: ${front.title ?? pslug}\n\nDeleted from the control panel by ${staff.email}`, sha: meta.sha, branch: GH_BRANCH, committer: { name: "VIDIKSHA Control Panel", email: "team@vidiksha.in" } }) });
+        if (!del.ok) { const r = await del.json(); return json({ error: `GitHub refused the deletion: ${r.message ?? del.status}` }, 502, origin); }
+        return json({ ok: true, slug: pslug }, 200, origin);
+      }
+      const hidden = !!b.hidden;
+      const text = buildPost({ title: front.title ?? "", description: front.description ?? "", date: front.date ?? "", category: front.category ?? "", course: front.course ?? "", hidden }, pbody);
+      const put = await gh(ppath, { method: "PUT", body: JSON.stringify({ message: `${hidden ? "Hide" : "Show"} blog post: ${front.title ?? pslug}\n\nChanged from the control panel by ${staff.email}`, content: b64(text), branch: GH_BRANCH, sha: meta.sha, committer: { name: "VIDIKSHA Control Panel", email: "team@vidiksha.in" } }) });
+      if (!put.ok) { const r = await put.json(); return json({ error: `GitHub refused the commit: ${r.message ?? put.status}` }, 502, origin); }
+      return json({ ok: true, slug: pslug, hidden }, 200, origin);
     }
 
     // Testimonials: every piece of training feedback whose author consented to publication -> content/testimonials.json
@@ -177,8 +232,7 @@ Deno.serve(async (req) => {
       sha = (await existing.json()).sha;
     } else if (mode === "update") return json({ error: `No post with the slug "${slug}" to update.` }, 404, origin);
 
-    const front = [`---`, `title: ${yamlStr(title)}`, `description: ${yamlStr(description)}`, `date: ${date}`, `category: ${category}`, course ? `course: ${course}` : null, `---`].filter(Boolean).join("\n");
-    const content = `${front}\n\n${body}\n`;
+    const content = buildPost({ title, description, date, category, course, hidden: !!b.hidden }, body);
     const put = await gh(path, { method: "PUT", body: JSON.stringify({ message: `${mode === "update" ? "Update" : "Add"} blog post: ${title}\n\nPublished from the control panel by ${staff.email}`, content: b64(content), branch: GH_BRANCH, sha, committer: { name: "VIDIKSHA Control Panel", email: "team@vidiksha.in" } }) });
     const res = await put.json();
     if (!put.ok) { console.error("github", res); return json({ error: `GitHub refused the commit: ${res.message ?? put.status}` }, 502, origin); }

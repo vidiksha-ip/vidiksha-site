@@ -675,25 +675,63 @@
   }
 
   /* ------------------------------------------------------------ blog */
-  function blog() {
-    L.render(head('Blog posts', 'Publish a blog post', 'The post is committed to the website repository and vidiksha.in rebuilds itself within about a minute. Write in Markdown: ## for headings, blank lines between paragraphs, **bold**, lists with -.') +
+  function blogApi(body) {
+    return sb.auth.getSession().then(function (s) {
+      return fetch(L.cfg.functionsUrl + '/publish-post', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s.data.session.access_token, apikey: L.cfg.anonKey }, body: JSON.stringify(body) })
+        .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'Failed'); return j; }); });
+    });
+  }
+  function blog(p, q) {
+    L.render(head('Blog posts', 'Blog posts', 'Every post on vidiksha.in. Edit, hide or delete from the table; write a new one below. Changes reach the site in a minute or two.', '<button class="btn" id="new">New post</button>') +
+      '<p class="status" id="list-st"></p><div id="list">' + L.spinner('Loading posts from the website repository') + '</div>' +
+      '<div class="section"><div class="section-head"><h2 id="ed-title">New post</h2><span class="muted small">Markdown: ## for headings, blank lines between paragraphs, **bold**, lists with -.</span></div>' +
       '<form class="form card" id="blog-form">' +
       '<div class="form-row">' + L.field('Title', '<input type="text" name="title" required>') + L.field('URL slug (auto from the title)', '<input type="text" name="slug" placeholder="auto">') + '</div>' +
       L.field('Description (one or two sentences, shown on cards and in search results)', '<input type="text" name="description" required maxlength="200">') +
-      '<div class="form-row">' + L.field('Category', '<select name="category"><option>Trademark</option><option>Patent</option><option>Copyright</option><option>Design</option><option>Licensing</option></select>') + L.field('Related course', courseSelect('course', 'trademark-prosecution-in-practice')) + '</div>' +
-      '<div class="form-row">' + L.field('Date', '<input type="date" name="date" value="' + new Date().toISOString().slice(0, 10) + '">') + L.field('Mode', '<select name="mode"><option value="create">New post (refuse if the slug exists)</option><option value="update">Update an existing post with this slug</option></select>') + '</div>' +
+      '<div class="form-row">' + L.field('Category', '<select name="category"><option>Trademark</option><option>Patent</option><option>Copyright</option><option>Design</option><option>Licensing</option></select>') + L.field('Related course', courseSelect('course', Object.keys(COURSES)[0])) + '</div>' +
+      '<div class="form-row">' + L.field('Date', '<input type="date" name="date" value="' + new Date().toISOString().slice(0, 10) + '">') + '<label class="check" style="align-self:end;padding-bottom:0.6rem"><input type="checkbox" name="hidden"> Hidden (saved in the repository but not shown on the site)</label></div>' +
       L.field('Body (Markdown)', '<textarea name="body" class="tall" required placeholder="## The problem&#10;&#10;Most juniors…"></textarea>') +
-      '<div class="actions"><button class="btn" type="submit">Publish to vidiksha.in</button></div><p class="status" id="st"></p></form>' +
-      '<p class="fine" style="margin-top:1rem">Existing posts: <a href="' + L.cfg.siteUrl + '/blog/" target="_blank" rel="noopener">vidiksha.in/blog ↗</a>. To edit one, use its slug (the last part of its address) with mode “Update”.</p>');
-    var form = $('#blog-form');
+      '<input type="hidden" name="mode" value="create">' +
+      '<div class="actions"><button class="btn" type="submit" id="save">Publish to vidiksha.in</button><button class="btn btn-ghost" type="button" id="cancel" hidden>Cancel editing</button></div><p class="status" id="st"></p></form></div>');
+    var form = $('#blog-form'), posts = [];
+    function resetForm() { form.reset(); form.mode.value = 'create'; form.slug.readOnly = false; delete form.slug.dataset.touched; $('#ed-title').textContent = 'New post'; $('#save').textContent = 'Publish to vidiksha.in'; $('#cancel').hidden = true; $('#st').textContent = ''; }
+    function load() {
+      blogApi({ type: 'list_posts' }).then(function (j) {
+        posts = j.posts || [];
+        $('#list').innerHTML = table([
+          { label: 'Date', nowrap: true, get: function (x) { return L.fmtDate(x.date); } },
+          { label: 'Title', html: function (x) { return '<a href="' + L.cfg.siteUrl + '/blog/' + esc(x.slug) + '/" target="_blank" rel="noopener"><strong>' + esc(x.title) + '</strong></a><span class="sub">' + esc(x.description) + '</span>'; } },
+          { label: 'Category', nowrap: true, key: 'category' },
+          { label: 'Course', get: function (x) { return x.course ? L.courseName(x.course) : ''; } },
+          { label: 'Website', html: function (x) { return x.hidden ? '<span class="pill">hidden</span>' : '<span class="pill ok">shown</span>'; } },
+          { label: '', nowrap: true, html: function (x) { return '<button class="btn btn-ghost btn-sm" data-edit="' + esc(x.slug) + '">Edit</button> ' + (x.hidden ? '<button class="btn btn-sm" data-show="' + esc(x.slug) + '">Show</button>' : '<button class="btn btn-ghost btn-sm" data-hide="' + esc(x.slug) + '">Hide</button>') + ' <button class="btn btn-danger btn-sm" data-del="' + esc(x.slug) + '">Delete</button>'; } }
+        ], posts, 'No posts in the repository yet.');
+        var st = $('#list-st');
+        var act = function (body, label) { st.textContent = label + '…'; st.className = 'status'; return blogApi(body).then(function () { st.textContent = ''; load(); }, function (e) { st.textContent = L.err(e); st.className = 'status is-error'; }); };
+        $$('[data-hide]').forEach(function (b) { b.addEventListener('click', function () { act({ type: 'set_post_hidden', slug: b.getAttribute('data-hide'), hidden: true }, 'Hiding'); }); });
+        $$('[data-show]').forEach(function (b) { b.addEventListener('click', function () { act({ type: 'set_post_hidden', slug: b.getAttribute('data-show'), hidden: false }, 'Showing'); }); });
+        $$('[data-del]').forEach(function (b) { b.addEventListener('click', function () { if (!confirmDelete('this post from the website and the repository')) return; act({ type: 'delete_post', slug: b.getAttribute('data-del') }, 'Deleting'); }); });
+        $$('[data-edit]').forEach(function (b) { b.addEventListener('click', function () {
+          st.textContent = 'Loading the post…'; st.className = 'status';
+          blogApi({ type: 'get_post', slug: b.getAttribute('data-edit') }).then(function (x) {
+            st.textContent = '';
+            form.title.value = x.title; form.slug.value = x.slug; form.slug.readOnly = true; form.slug.dataset.touched = '1'; form.description.value = x.description; form.category.value = x.category || 'Trademark';
+            if (x.course) form.course.value = x.course; form.date.value = x.date; form.hidden.checked = !!x.hidden; form.body.value = x.body; form.mode.value = 'update';
+            $('#ed-title').textContent = 'Editing: ' + x.title; $('#save').textContent = 'Save changes'; $('#cancel').hidden = false;
+            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, function (e) { st.textContent = L.err(e); st.className = 'status is-error'; });
+        }); });
+      }, function (e) { $('#list').innerHTML = L.empty(L.err(e).indexOf('not configured') >= 0 ? 'Blog management needs the GitHub token (see README).' : L.err(e)); });
+    }
+    load();
+    $('#new').addEventListener('click', function () { resetForm(); form.scrollIntoView({ behavior: 'smooth', block: 'start' }); form.title.focus(); });
+    $('#cancel').addEventListener('click', resetForm);
     form.title.addEventListener('input', function () { if (!form.slug.dataset.touched) form.slug.value = L.slugify(form.title.value); });
     form.slug.addEventListener('input', function () { form.slug.dataset.touched = '1'; });
     form.addEventListener('submit', function (e) {
-      e.preventDefault(); var f = L.formData(form), st = $('#st'); st.textContent = 'Publishing…'; st.className = 'status';
+      e.preventDefault(); var f = L.formData(form), st = $('#st'); st.textContent = f.mode === 'update' ? 'Saving…' : 'Publishing…'; st.className = 'status';
       f.slug = L.slugify(f.slug || f.title);
-      sb.auth.getSession().then(function (s) {
-        return fetch(L.cfg.functionsUrl + '/publish-post', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s.data.session.access_token, apikey: L.cfg.anonKey }, body: JSON.stringify(f) }).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'Failed'); return j; }); });
-      }).then(function (j) { st.innerHTML = 'Published. It will be live at <a href="' + esc(j.url) + '" target="_blank" rel="noopener">' + esc(j.url) + '</a> in a minute or two.'; st.className = 'status is-ok'; form.reset(); delete form.slug.dataset.touched; }, function (err) { st.textContent = L.err(err); st.className = 'status is-error'; });
+      blogApi(f).then(function (j) { st.innerHTML = (f.mode === 'update' ? 'Saved. ' : 'Published. ') + (f.hidden ? 'The post is hidden from the site.' : 'Live at <a href="' + esc(j.url) + '" target="_blank" rel="noopener">' + esc(j.url) + '</a> in a minute or two.'); st.className = 'status is-ok'; var keep = st.innerHTML; resetForm(); st.innerHTML = keep; st.className = 'status is-ok'; load(); }, function (err) { st.textContent = L.err(err); st.className = 'status is-error'; });
     });
   }
 
