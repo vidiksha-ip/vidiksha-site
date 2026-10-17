@@ -404,7 +404,7 @@
           { label: 'Account', html: function (x) { return x.user_id ? '<span class="pill ok">yes</span>' : '<span class="pill warn">none</span>'; } }
         ], regs) : L.empty('Nobody has registered yet. Registrations arrive from the form on vidiksha.in.')) +
         '<div class="section"><div class="section-head"><h2>Feedback</h2><span class="actions"><span class="muted small">' + fbs.filter(function (f) { return f.consent_publish; }).length + ' consented to publication</span><button class="btn btn-ghost btn-sm" id="pub-testimonials">Publish consented feedback to vidiksha.in</button></span></div><p class="status" id="pub-st"></p>' +
-        (fbs.length ? fbs.map(function (f) { return '<div class="notice ' + (f.consent_publish ? 'is-pinned' : '') + '"><div class="meta">' + esc(f.full_name) + (f.profession ? ' · ' + esc(f.profession) : '') + (f.organisation ? ' · ' + esc(f.organisation) : '') + ' · ' + f.rating + '/5 · ' + esc(L.fmtDate(f.created_at)) + ' · ' + (f.consent_publish ? 'may be published' : 'private') + ' · <a href="' + esc(f.linkedin_url) + '" target="_blank" rel="noopener">LinkedIn</a></div><div class="prose small">' + L.nl2p(f.feedback) + '</div></div>'; }).join('') : L.empty(finished ? 'No feedback yet.' : 'Feedback opens for registrants once the session is over.')) + '</div>');
+        feedbackTable(fbs, { empty: finished ? 'No feedback yet.' : 'Feedback opens for registrants once the session is over.' }) + '</div>');
       var st = $('#ts-st');
       var pub = function (type, label) { st.textContent = label + '…'; st.className = 'status'; sitePublish(type, slug).then(function () { L.toast(type === 'session' ? 'Shown on vidiksha.in' : 'Hidden from vidiksha.in', 'ok'); trainingSession(slug); }, function (e) { st.textContent = L.err(e); st.className = 'status is-error'; }); };
       if ($('#edit')) $('#edit').addEventListener('click', function () { sessionDialog(s); });
@@ -424,6 +424,48 @@
     });
   }
 
+  /* ------------------------------------------------------------ feedback table (shared) */
+  function viewDialog(title, html) {
+    var d = document.createElement('dialog');
+    d.innerHTML = '<div class="dlg"><h2>' + esc(title) + '</h2>' + html + '<div class="actions" style="margin-top:1.25rem"><button class="btn btn-ghost" type="button" data-close>Close</button></div></div>';
+    document.body.appendChild(d); d.showModal();
+    $('[data-close]', d).addEventListener('click', function () { d.close(); d.remove(); });
+    d.addEventListener('click', function (e) { if (e.target === d) { d.close(); d.remove(); } });
+    return d;
+  }
+  function feedbackDialog(f) {
+    var t = String(f.feedback || '');
+    viewDialog('Feedback from ' + (f.full_name || f.email), '<p class="muted small" style="margin:0 0 0.75rem">' + esc(f.session_title || f.session_slug) + ' · ' + esc(L.fmtDateTime(f.created_at)) + ' · rated ' + f.rating + ' of 5 · ' + t.trim().split(/\s+/).filter(Boolean).length + ' words' + (f.consent_publish ? ' · consented to publication' : ' · private') + '</p><div class="prose" style="max-height:55vh;overflow:auto;padding-right:0.5rem">' + L.nl2p(t) + '</div><p class="small" style="margin:0.75rem 0 0"><a href="' + esc(f.linkedin_url) + '" target="_blank" rel="noopener">' + esc(f.linkedin_url) + '</a></p>');
+  }
+  function feedbackTable(list, opts) {
+    opts = opts || {};
+    var cols = [
+      { label: 'S. No.', nowrap: true, html: function (f) { return String(list.indexOf(f) + 1); } },
+      { label: 'Date', nowrap: true, get: function (f) { return L.fmtDate(f.created_at); } },
+      { label: 'Time', nowrap: true, get: function (f) { return new Date(f.created_at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' }); } },
+      { label: 'Full name', html: function (f) { return f.user_id ? '<a href="#/student/' + f.user_id + '">' + esc(f.full_name || '') + '</a>' : esc(f.full_name || ''); } },
+      { label: 'Email ID', key: 'email' },
+      { label: 'Contact', nowrap: true, key: 'whatsapp' }
+    ];
+    if (opts.session) cols.push({ label: 'Session', html: function (f) { return '<a href="#/training/' + encodeURIComponent(f.session_slug) + '">' + esc(f.session_title || f.session_slug) + '</a>'; } });
+    cols.push({ label: 'LinkedIn profile', nowrap: true, html: function (f) { return '<a href="' + esc(f.linkedin_url) + '" target="_blank" rel="noopener">Open profile ↗</a>'; } });
+    cols.push({ label: 'Rating out of 5', nowrap: true, html: function (f) { return '<strong>' + f.rating + '</strong> / 5'; } });
+    cols.push({ label: 'Feedback', nowrap: true, html: function (f) { return '<button class="btn btn-ghost btn-sm" data-view-fb="' + f.id + '">View feedback</button>'; } });
+    cols.push({ label: 'Certificate', nowrap: true, html: function (f) { return f.certificate_no ? esc(f.certificate_no) + ' <button class="btn btn-ghost btn-sm" data-cert="' + f.registration_id + '">PDF</button>' : (f.attended === false ? '<span class="pill bad">absent</span>' : '<span class="muted">—</span>'); } });
+    var html = table(cols, list, opts.empty || 'No feedback yet.');
+    setTimeout(function () {
+      $$('[data-view-fb]').forEach(function (b) { b.addEventListener('click', function () { var f = list.filter(function (x) { return x.id === b.getAttribute('data-view-fb'); })[0]; if (f) feedbackDialog(f); }); });
+      $$('[data-cert]').forEach(function (b) { b.addEventListener('click', function () {
+        b.disabled = true;
+        sb.auth.getSession().then(function (s2) { return fetch(L.cfg.functionsUrl + '/payments/certificate?reg=' + encodeURIComponent(b.getAttribute('data-cert')), { headers: { Authorization: 'Bearer ' + s2.data.session.access_token, apikey: L.cfg.anonKey } }); })
+          .then(function (res) { if (!res.ok) return res.json().then(function (j) { throw new Error(j.error || 'Could not open the certificate.'); }); return res.blob(); })
+          .then(function (blob) { var u = URL.createObjectURL(blob); window.open(u, '_blank', 'noopener'); setTimeout(function () { URL.revokeObjectURL(u); }, 60000); })
+          .catch(function (e) { L.toast(L.err(e), 'error'); }).then(function () { b.disabled = false; });
+      }); });
+    }, 0);
+    return html;
+  }
+
   /* ------------------------------------------------------------ feedbacks */
   function feedbacks() {
     L.render(head('Feedbacks', 'Training feedback', 'Every piece of feedback from live training participants, with the certificate issued to them.', '<button class="btn btn-ghost" id="csv">Export CSV</button><button class="btn" id="pub">Publish consented feedback to vidiksha.in</button>') +
@@ -433,22 +475,7 @@
       var s = $('#q').value.toLowerCase(), ss = $('#session').value, c = $('#consent').value, rt = $('#rating').value, ce = $('#cert').value;
       var list = rows.filter(function (f) { return (!s || [f.full_name, f.email, f.feedback].join(' ').toLowerCase().indexOf(s) >= 0) && (!ss || f.session_slug === ss) && (!c || (c === 'yes') === !!f.consent_publish) && (!rt || String(f.rating) === rt) && (!ce || (ce === 'yes') === !!f.certificate_no); });
       var avg = list.length ? (list.reduce(function (a, f) { return a + f.rating; }, 0) / list.length).toFixed(1) : '—';
-      $('#tbl').innerHTML = '<p class="muted small">' + list.length + ' feedback' + (list.length === 1 ? '' : 's') + ' · average rating ' + avg + ' · ' + list.filter(function (f) { return f.consent_publish; }).length + ' consented to publication · ' + list.filter(function (f) { return f.certificate_no; }).length + ' certificates issued</p>' + table([
-        { label: 'Date', nowrap: true, get: function (f) { return L.fmtDate(f.created_at); } },
-        { label: 'Participant', html: function (f) { return '<a href="#/student/' + f.user_id + '"><strong>' + esc(f.full_name || f.email) + '</strong></a><span class="sub">' + esc(f.email) + '</span><span class="sub">' + esc([f.profession, f.organisation].filter(Boolean).join(' · ')) + '</span><span class="sub"><a href="' + esc(f.linkedin_url) + '" target="_blank" rel="noopener">LinkedIn ↗</a></span>'; } },
-        { label: 'Session', html: function (f) { return '<a href="#/training/' + encodeURIComponent(f.session_slug) + '">' + esc(f.session_title || f.session_slug) + '</a>' + (f.starts_at ? '<span class="sub">' + esc(L.fmtDate(f.starts_at)) + '</span>' : ''); } },
-        { label: 'Rating', nowrap: true, html: function (f) { return '<strong>' + f.rating + '</strong>/5'; } },
-        { label: 'Feedback', html: function (f) { var t = String(f.feedback || ''); return '<div class="prose small" style="max-width:52ch">' + L.nl2p(t) + '</div><span class="sub">' + t.trim().split(/\s+/).filter(Boolean).length + ' words</span>'; } },
-        { label: 'Publish', nowrap: true, html: function (f) { return f.consent_publish ? '<span class="pill ok">consented</span>' : '<span class="pill">private</span>'; } },
-        { label: 'Certificate', nowrap: true, html: function (f) { return f.certificate_no ? '<strong>' + esc(f.certificate_no) + '</strong><span class="sub">' + esc(L.fmtDate(f.certificate_issued_at)) + '</span><button class="btn btn-ghost btn-sm" data-cert="' + f.registration_id + '" data-no="' + esc(f.certificate_no) + '">View PDF</button>' : (f.attended === false ? '<span class="pill bad">marked absent</span>' : '<span class="pill">not downloaded yet</span>'); } }
-      ], list, 'No feedback yet. Participants leave it in the portal after a session ends.');
-      $$('[data-cert]').forEach(function (b) { b.addEventListener('click', function () {
-        b.disabled = true;
-        sb.auth.getSession().then(function (s2) { return fetch(L.cfg.functionsUrl + '/payments/certificate?reg=' + encodeURIComponent(b.getAttribute('data-cert')), { headers: { Authorization: 'Bearer ' + s2.data.session.access_token, apikey: L.cfg.anonKey } }); })
-          .then(function (res) { if (!res.ok) return res.json().then(function (j) { throw new Error(j.error || 'Could not open the certificate.'); }); return res.blob(); })
-          .then(function (blob) { var u = URL.createObjectURL(blob); window.open(u, '_blank', 'noopener'); setTimeout(function () { URL.revokeObjectURL(u); }, 60000); })
-          .catch(function (e) { L.toast(L.err(e), 'error'); }).then(function () { b.disabled = false; });
-      }); });
+      $('#tbl').innerHTML = '<p class="muted small">' + list.length + ' feedback' + (list.length === 1 ? '' : 's') + ' · average rating ' + avg + ' · ' + list.filter(function (f) { return f.consent_publish; }).length + ' consented to publication · ' + list.filter(function (f) { return f.certificate_no; }).length + ' certificates issued</p>' + feedbackTable(list, { session: true, empty: 'No feedback yet. Participants leave it in the portal after a session ends.' });
       $('#csv').onclick = function () { L.download('vidiksha-feedback.csv', L.csv(list, [{ label: 'Date', key: 'created_at' }, { label: 'Name', key: 'full_name' }, { label: 'Email', key: 'email' }, { label: 'Profession', key: 'profession' }, { label: 'Organisation', key: 'organisation' }, { label: 'Session', key: 'session_title' }, { label: 'Rating', key: 'rating' }, { label: 'Feedback', key: 'feedback' }, { label: 'LinkedIn', key: 'linkedin_url' }, { label: 'Consent to publish', get: function (f) { return f.consent_publish ? 'yes' : 'no'; } }, { label: 'Certificate', key: 'certificate_no' }, { label: 'Certificate issued', key: 'certificate_issued_at' }])); };
     }
     sb.from('training_feedback_overview').select('*').order('created_at', { ascending: false }).then(function (r) {
