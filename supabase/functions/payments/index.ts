@@ -192,7 +192,7 @@ async function markPaid(orderId: string, paymentId: string) {
         const mail: WelcomeMail = {
           to: e.email, name: e.full_name, course: e.course_title, amountInr: Number(e.amount_inr), invoiceNo: e.invoice_no, paymentId,
           portalUrl: PORTAL_URL, researchUrl: `${SITE_URL}/research/`,
-          account: { status: e.account_status === "created" ? "created" : "existing", email: e.email, password, resetUrl: `${SITE_URL}/research/` },
+          account: { status: e.account_status === "created" ? "created" : "existing", email: e.email, password, resetUrl: `${PORTAL_URL || SITE_URL}/#/forgot` },
           kit: true,
           accessNote: ACCESS_NOTE,
           pdf: { filename: `VIDIKSHA-invoice-${e.invoice_no.replace(/\//g, "-")}.pdf`, base64: toBase64(pdf) },

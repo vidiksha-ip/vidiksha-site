@@ -27,6 +27,8 @@
   /* ---------- data access ----------
      The repository is public: the index, full-text shards and judgment texts are static files next to the page. */
   var started = false;
+  // Password-reset links from older emails pointed here; the portal handles them now.
+  if (/type=recovery|type=signup|type=magiclink/.test(location.hash)) { location.replace((root.getAttribute('data-portal') || 'https://portal.vidiksha.in') + '/' + location.hash); return; }
   function authFetch(url) { return fetch(url); }
   function initAuth() { root.hidden = false; if (!started) { started = true; load(); } }
 

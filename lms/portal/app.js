@@ -38,7 +38,7 @@
     $('#forgot-form').addEventListener('submit', function (e) {
       e.preventDefault();
       var st = $('#forgot-status'); st.textContent = 'Sending…';
-      sb.auth.resetPasswordForEmail(L.formData(e.target).email.toLowerCase(), { redirectTo: location.origin + location.pathname + '#/reset' }).then(function (r) {
+      sb.auth.resetPasswordForEmail(L.formData(e.target).email.toLowerCase(), { redirectTo: location.origin + location.pathname }).then(function (r) {
         st.textContent = r.error ? r.error.message : 'If that address has an account, the reset link is on its way.'; st.className = 'status ' + (r.error ? 'is-error' : 'is-ok');
       });
     });
