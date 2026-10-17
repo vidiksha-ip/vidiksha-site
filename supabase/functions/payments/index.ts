@@ -318,6 +318,24 @@ async function certificateDownload(req: Request, origin: string | null) {
   return new Response(pdf, { status: 200, headers: { ...cors(origin), "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="VIDIKSHA-certificate-${no.replace(/\//g, "-")}.pdf"`, "Cache-Control": "private, no-store" } });
 }
 
+/** POST /admin/set-password { user_id, password }, with an admin's session token: sets any member's password. */
+async function adminSetPassword(req: Request, origin: string | null) {
+  const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
+  if (!token) return json({ error: "Sign in as an admin." }, 401, origin);
+  const u = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${token}` } });
+  if (!u.ok) return json({ error: "Sign in as an admin." }, 401, origin);
+  const admin = await u.json();
+  const staff = await db(`staff?user_id=eq.${admin.id}&role=eq.admin&select=role`);
+  if (!staff?.length) return json({ error: "Only admins can change passwords." }, 403, origin);
+  const b = await req.json().catch(() => ({})) as Json;
+  const userId = clean(b.user_id, 40), password = String(b.password ?? "");
+  if (!/^[0-9a-f-]{36}$/.test(userId)) return json({ error: "Choose a member." }, 400, origin);
+  if (password.length < 8) return json({ error: "The password needs at least 8 characters." }, 400, origin);
+  await authAdmin(`users/${userId}`, { method: "PUT", body: JSON.stringify({ password }) });
+  await db("activity_log", { method: "POST", body: JSON.stringify({ user_id: userId, event: "password_set_by_admin", meta: { by: admin.email } }) }).catch(() => null);
+  return json({ ok: true }, 200, origin);
+}
+
 /* ---- routes ---- */
 async function createOrder(req: Request, origin: string | null) {
   if (!RZP_KEY_ID || !RZP_KEY_SECRET) return json({ error: "Payments are not configured yet." }, 503, origin);
@@ -401,6 +419,7 @@ Deno.serve(async (req) => {
     if (path.endsWith("/invoice") && req.method === "GET") return await invoiceDownload(req, origin);
     if (path.endsWith("/register-session") && req.method === "POST") return await registerSession(req, origin);
     if (path.endsWith("/certificate") && req.method === "GET") return await certificateDownload(req, origin);
+    if (path.endsWith("/admin/set-password") && req.method === "POST") return await adminSetPassword(req, origin);
     if (path.endsWith("/status")) return json({ ok: true, razorpay: !!(RZP_KEY_ID && RZP_KEY_SECRET), webhook: !!RZP_WEBHOOK_SECRET, sheet: !!SHEET_URL, email: !!RESEND_KEY, gstin: !!SELLER.gstin, portal: PORTAL_URL || null }, 200, origin);
     return json({ error: "Not found" }, 404, origin);
   } catch (e) {

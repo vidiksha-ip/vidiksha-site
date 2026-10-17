@@ -149,7 +149,7 @@
         var totalMin = Math.round(watch.reduce(function (a, w) { return a + (w.seconds || 0); }, 0) / 60), doneCount = watch.filter(function (w) { return w.completed; }).length;
 
         L.render(head('Member', p.full_name || p.email, esc(p.email) + (p.whatsapp ? ' · ' + esc(p.whatsapp) : '') + (p.profession ? ' · ' + esc(p.profession) : '') + (p.organisation ? ' · ' + esc(p.organisation) : '') + (r[7].data ? ' · <span class="pill ok">team: ' + esc(r[7].data.role) + '</span>' : ''),
-          '<button class="btn btn-ghost" id="edit">Edit details</button><button class="btn" id="grant">Grant course access</button>') +
+          '<button class="btn btn-ghost" id="edit">Edit details</button>' + (me.role === 'admin' ? '<button class="btn btn-ghost" id="setpw">Set password</button>' : '') + '<button class="btn" id="grant">Grant course access</button>') +
           '<div class="grid grid-4" style="margin-bottom:1.75rem">' + [[totalMin ? L.minutes(totalMin) : '0 min', 'watched in total'], [doneCount, 'sessions completed'], [logins.length ? L.fmtDate(logins[0].created_at) : 'never', 'last portal login'], [(rlog.length ? L.fmtDate(rlog[0].created_at) : 'never'), 'last research login']].map(function (x) { return '<div class="card stat"><div class="n" style="font-size:1.5rem">' + esc(x[0]) + '</div><div class="l">' + esc(x[1]) + '</div></div>'; }).join('') + '</div>' +
 
           '<div class="section-head"><h2>Course access</h2><span class="muted small">Disable hides the course in the portal; the record and the invoice stay.</span></div>' +
@@ -189,6 +189,15 @@
         $('#msg-form').addEventListener('submit', function (e) {
           e.preventDefault(); var st = $('#msg-st'); st.textContent = 'Sending…';
           sb.from('messages').insert({ user_id: id, from_staff: true, sender_id: session.user.id, body: e.target.body.value.trim() }).then(function (x) { if (x.error) { st.textContent = L.err(x.error); st.className = 'status is-error'; return; } L.toast('Sent', 'ok'); student(id); });
+        });
+        if ($('#setpw')) $('#setpw').addEventListener('click', function () {
+          var d = dialog('Set a new password for ' + (p.full_name || p.email), '<p class="muted">The member signs in with this password from now on, on the portal and, if they are staff, here. Tell them the new password yourself; nothing is emailed.</p>' + L.field('New password (at least 8 characters)', '<div class="pw"><input type="password" name="password" id="apw" required minlength="8" autocomplete="new-password"><button type="button" data-toggle-password="apw">Show</button></div>') + L.field('Repeat it', '<input type="password" name="confirm" required minlength="8" autocomplete="new-password">'), function (f) {
+            if (f.password.length < 8) throw new Error('At least 8 characters.');
+            if (f.password !== f.confirm) throw new Error('The two passwords differ.');
+            return sb.auth.getSession().then(function (s) { return fetch(L.cfg.functionsUrl + '/payments/admin/set-password', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s.data.session.access_token, apikey: L.cfg.anonKey }, body: JSON.stringify({ user_id: id, password: f.password }) }); })
+              .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'Could not set the password.'); }); }).then(function () { L.toast('Password changed', 'ok'); });
+          });
+          L.passwordToggles(d);
         });
         $$('[data-batch]').forEach(function (sel) { sel.addEventListener('change', function () { if (!sel.value) return; sb.rpc('assign_batch', { uid: id, slug: sel.getAttribute('data-batch'), bid: sel.value }).then(function (x) { if (x.error) return L.toast(L.err(x.error), 'error'); L.toast('Batch changed', 'ok'); student(id); }); }); });
         $('#grant').addEventListener('click', function () {

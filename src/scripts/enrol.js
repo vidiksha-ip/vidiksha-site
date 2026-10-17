@@ -54,7 +54,11 @@
       handler: function (resp) {
         say('Payment received. Confirming…');
         api('/verify', resp).then(function (r) {
-          finish('Payment confirmed for ' + r.course + '. Your welcome email is on its way to ' + r.email + ' with your VIDIKSHA login details and the tax invoice and receipt as a PDF; it usually arrives within a few minutes. The IP Prosecution Kit ships to the address you gave within 7 working days.');
+          var portal = (box.getAttribute('data-portal') || 'https://portal.vidiksha.in').replace(/^https?:\/\//, '');
+          var account = r.account === 'existing'
+            ? 'This email already has a VIDIKSHA account, so the course has been added to it: sign in at ' + portal + ' with your existing details. '
+            : 'Your welcome email is on its way to ' + r.email + ' with your login details for ' + portal + '. ';
+          finish('Payment confirmed for ' + r.course + '. ' + account + 'The tax invoice and receipt come as a PDF in the same email, usually within a few minutes. The IP Prosecution Kit ships to the address you gave within 7 working days.');
         }).catch(function () {
           finish('Your payment went through. Confirmation is taking a moment longer than usual; your welcome email with login details and invoice will follow shortly. If it has not arrived within an hour, write to team@vidiksha.in with your email address.');
         });
