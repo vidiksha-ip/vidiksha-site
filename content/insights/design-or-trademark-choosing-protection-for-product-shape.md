@@ -2,8 +2,7 @@
 title: Design or trademark? Choosing protection for a product shape
 description: A product shape can be a registered design, a shape mark, or neither. The order you file in decides what you end up with. A decision method for the first meeting.
 date: 2026-08-05
-category: Design
-course: copyright-and-design-registration
+category: Strategy
 ---
 
 A founder puts a bottle on the table and asks you to "protect the shape". There are three possible answers under Indian law, they overlap badly, and picking the wrong one first can close off the right one. This is how to think it through in the meeting, before anyone files anything.
@@ -40,5 +39,3 @@ The design buys time. The trademark is what you are building toward. Telling the
 **Functional shapes.** If the shape is the way it is because that is how the thing works, neither route is open. A design dictated solely by function is excluded; a shape necessary to obtain a technical result is refused as a mark. Ask what would happen if the shape changed. If the product would stop working, stop here.
 
 **Claiming too much in the design.** Representations that show the whole bottle with the label, the cap and the embossed logo claim all of it, and a competitor who copies the bottle without the label may escape. Decide which features are the design, show those, and disclaim the rest.
-
-The Copyright and Design Registration course has a full design application exercise and a decision tree for product shape that you can take into the meeting.

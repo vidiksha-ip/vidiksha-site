@@ -1,11 +1,10 @@
 # generated
 dist/
-.research-build/
-.research-upload-state.json
-data/
 node_modules/
-# large, regenerable research inputs (scripts/research-index.py rebuilds them; the JSON records are committed)
 # local only
 .env
 *.log
 .claude/
+# local registration log and upload state from the old site: never commit
+_legacy/data/
+_legacy/.research-upload-state.json

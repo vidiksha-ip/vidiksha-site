@@ -1,0 +1,17 @@
+{
+  "_note": "Copy this file to <slug>.json (without the leading underscore) for each lawyer. Files starting with _ are ignored by the build. Remove the _note line.",
+  "name": "Full Name",
+  "role": "Founding Partner",
+  "order": 1,
+  "email": "name@vidiksha.in",
+  "linkedin": "",
+  "photo": "",
+  "qualifications": ["B.A. LL.B. (Hons.)", "Registered Trade Marks Agent"],
+  "focus": ["Prosecution", "Oppositions", "Enforcement"],
+  "bio": [
+    "Two or three paragraphs. What the lawyer does, the kinds of matters and clients they act for, and anything that explains why a client would want them on the file.",
+    "Keep it factual. Bar Council rules do not permit claims of specialisation or superiority in advertising; describe the work, not the ranking."
+  ],
+  "admissions": ["Bar Council of ..."],
+  "languages": ["English", "Hindi"]
+}

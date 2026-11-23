@@ -1,0 +1,27 @@
+{
+  "slug": "enforcement-and-litigation",
+  "order": 4,
+  "title": "Enforcement and Litigation",
+  "short": "Infringement and passing off actions before the Commercial Courts and the Intellectual Property Divisions of the High Courts.",
+  "intro": [
+    "When a mark is copied, the brand owner needs two things quickly: an honest assessment of the case and a remedy proportionate to the harm. We provide both. Many matters are resolved by a well-drafted letter and a negotiated undertaking. Those that are not are pursued in court with the record already prepared.",
+    "We conduct suits for infringement and passing off, seek and resist interim injunctions, and handle the pre-institution mediation, appeals and execution that follow. We also advise defendants who have received a notice or been sued, where the right answer is often a considered response rather than capitulation."
+  ],
+  "services": [
+    "Investigations, cease-and-desist notices and negotiated undertakings",
+    "Suits for infringement and passing off before the Commercial Courts and High Courts",
+    "Interim and ex parte injunctions, Anton Piller and John Doe orders, local commissioner appointments",
+    "Pre-institution mediation under Section 12A of the Commercial Courts Act",
+    "Defence of infringement and passing off claims, including groundless threats actions",
+    "Dilution, trade dress, comparative advertising and disparagement claims",
+    "Appeals before Division Benches and the Supreme Court through counsel",
+    "Execution of decrees, damages and costs, and enforcement of settlement terms"
+  ],
+  "process": [
+    { "title": "Case assessment", "text": "A written opinion on the strength of the rights, the evidence of confusion and the remedies realistically available." },
+    { "title": "Notice and negotiation", "text": "Where appropriate, a notice drafted to secure an undertaking rather than a reply from a litigator." },
+    { "title": "Institution", "text": "Pleadings and evidence prepared to the standard of the first hearing, because the first hearing often decides the matter." },
+    { "title": "Conduct and closure", "text": "Active case management through interim orders, trial and appeal, with regular reporting to the client." }
+  ],
+  "categories": ["Enforcement"]
+}

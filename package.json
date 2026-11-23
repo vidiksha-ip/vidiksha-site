@@ -1,7 +1,7 @@
 {
   "name": "vidiksha",
   "version": "1.0.0",
-  "description": "Marketing site for VIDIKSHA, a practical IP law education platform. Static site, zero dependencies.",
+  "description": "Website for Vidiksha IP, a boutique trademark law firm in India. Static site, zero dependencies.",
   "private": true,
   "type": "commonjs",
   "scripts": {

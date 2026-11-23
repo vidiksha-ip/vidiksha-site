@@ -3,7 +3,6 @@ title: Drafting a trademark licence that survives a quality-control challenge
 description: A trademark licence without real quality control can cost the licensor the mark. The clause that prevents it is four paragraphs long. Here they are.
 date: 2026-09-02
 category: Licensing
-course: ip-licensing-and-contracts
 ---
 
 A trademark tells the consumer that goods come from one source and meet one standard. When the owner lets someone else use the mark without controlling that standard, the mark stops telling the truth. Courts in several jurisdictions have called this a naked licence and treated it as abandonment. Indian law has not gone quite that far in so many words, but the Trade Marks Act builds quality control into the definition of permitted use, and a licence that ignores it invites a rectification petition from the first competitor who notices.
@@ -38,5 +37,3 @@ Recording the licensee as a registered user on TM-U is optional under the Act, a
 ## The clause everyone forgets
 
 Whatever else the licence says, add one sentence: all goodwill arising from the Licensee's use of the Mark accrues to the Licensor. Without it, a long-running exclusive licensee in a territory where the licensor has never traded will one day argue that the goodwill is theirs. They will sometimes be right.
-
-The IP Licensing and Contracts course drafts a full brand licence for a food franchise, quality-control schedule included, and then negotiates it from the franchisee's side.

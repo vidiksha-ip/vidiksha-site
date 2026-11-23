@@ -1,0 +1,27 @@
+{
+  "slug": "licensing-and-brand-transactions",
+  "order": 7,
+  "title": "Licensing and Brand Transactions",
+  "short": "Licences, franchising, assignments, coexistence agreements and the trademark aspects of corporate transactions.",
+  "intro": [
+    "A brand grows through other people: licensees, franchisees, distributors, joint venture partners and acquirers. Each arrangement transfers some of the control that keeps a trademark valid and valuable. We draft and negotiate the agreements that let a brand be shared without being lost, and we handle the trademark side of transactions where a brand changes hands.",
+    "Our drafting is informed by what happens when these agreements are tested, in a rectification petition alleging an uncontrolled licence, a dispute over who owns the goodwill in a territory, or an acquisition where the chain of title turns out to be broken."
+  ],
+  "services": [
+    "Trademark licences, including quality control, royalty, audit and termination provisions that stand up to challenge",
+    "Franchise and master franchise agreements and brand standards manuals",
+    "Assignments and deeds of transfer, with recordal before the Registry",
+    "Coexistence, consent and settlement agreements that resolve conflicts without litigation",
+    "Trademark provisions in distribution, manufacturing, sponsorship and endorsement agreements",
+    "Brand aspects of mergers, acquisitions, demergers and investment rounds, including due diligence and chain of title",
+    "Security interests over trademarks and their recordal",
+    "Registered user applications and advice on permitted use under Section 48"
+  ],
+  "process": [
+    { "title": "Commercial understanding", "text": "We start with the deal, not the template: who controls what, where, for how long and at what price." },
+    { "title": "Structure", "text": "Advice on the ownership and licensing structure that protects the mark and fits the tax and corporate position." },
+    { "title": "Drafting and negotiation", "text": "Agreements drafted in plain terms and negotiated with the other side, with the client kept informed at each turn." },
+    { "title": "Recordal and follow-through", "text": "Assignments and licences recorded, and the client advised on the obligations the agreement creates." }
+  ],
+  "categories": ["Licensing"]
+}

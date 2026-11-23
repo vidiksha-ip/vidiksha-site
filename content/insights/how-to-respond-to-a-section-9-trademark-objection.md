@@ -2,8 +2,7 @@
 title: How to respond to a Section 9 trademark objection
 description: A working reply structure for the three absolute-grounds objections, and the evidence that actually moves the examiner.
 date: 2026-10-08
-category: Trademark
-course: trademark-prosecution-in-practice
+category: Prosecution
 ---
 
 The examination report lands and the objection reads something like this: "The mark is devoid of distinctive character and is not capable of distinguishing the goods of one person from those of others. Objection is raised under Section 9(1)(a) of the Trade Marks Act, 1999."
@@ -66,5 +65,3 @@ Keep it to four or five pages before annexures.
 The reply is due within one month of receipt of the examination report, and that period cannot be extended. If the deadline is close and the evidence is not ready, file the reply with the legal argument and state that user evidence is being compiled and will be produced at the hearing. That is a weaker position than filing complete. It is far better than an abandoned application.
 
 > The reply is not where you prove the mark is good. It is where you make it impossible for the examiner to say no without a hearing.
-
-The full reply template, a model affidavit of use and three worked examples are in the Trademark Prosecution in Practice course.

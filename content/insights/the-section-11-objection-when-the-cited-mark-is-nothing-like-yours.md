@@ -2,8 +2,7 @@
 title: "The Section 11 objection: when the cited mark is nothing like yours"
 description: Relative-grounds objections are won on comparison, not adjectives. Here is how to compare marks, goods and trade channels the way the Registry does.
 date: 2026-09-16
-category: Trademark
-course: trademark-prosecution-in-practice
+category: Prosecution
 ---
 
 The examiner has cited three earlier marks under Section 11(1) and asserted a likelihood of confusion. One of them shares a prefix with yours. One is in a different class entirely. One was abandoned in 2019. The temptation is to write a paragraph saying the marks are "completely different in look, sound and meaning" and move on.
@@ -47,5 +46,3 @@ If the cited mark belongs to someone reachable, a letter of consent or a short c
 5. Request for a hearing.
 
 Three to six pages. The examiner's time is the resource you are competing for.
-
-The Trademark Prosecution in Practice course has a full Section 11 exercise with three cited marks, and the reply that got the objection waived.

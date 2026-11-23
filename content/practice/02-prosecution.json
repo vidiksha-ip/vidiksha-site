@@ -1,0 +1,27 @@
+{
+  "slug": "prosecution",
+  "order": 2,
+  "title": "Prosecution and Registry Practice",
+  "short": "Examination report responses, show-cause hearings and everything between filing and the registration certificate.",
+  "intro": [
+    "Most Indian applications meet an objection under Section 9 or Section 11 of the Trade Marks Act, 1999. Whether the mark survives depends on how the response is argued and what evidence accompanies it. We treat each examination report as the first adversarial step in the life of the mark, not a formality to be templated.",
+    "We respond to objections with reasoned submissions and evidence, appear at show-cause hearings before the Registrar, and manage amendments, divisions, extensions and post-advertisement procedure until registration. For international brand owners, we take over Indian prosecution from foreign counsel and report in the form their docketing systems expect."
+  ],
+  "services": [
+    "Responses to examination reports on absolute grounds (Section 9) and relative grounds (Section 11)",
+    "Evidence of acquired distinctiveness and prior use: affidavits, sales and advertising data, trade evidence",
+    "Appearance at show-cause hearings before the Registrar of Trade Marks",
+    "Amendments, divisional applications, extensions of time and requests for expedited processing",
+    "Monitoring of advertisement in the Trade Marks Journal and post-advertisement procedure",
+    "Review and revival of abandoned, withdrawn or refused applications",
+    "Appeals from decisions of the Registrar to the High Courts",
+    "Prosecution of Indian designations under the Madrid Protocol and responses to provisional refusals"
+  ],
+  "process": [
+    { "title": "Reading the report", "text": "We identify what the examiner has actually objected to, which cited marks matter and what evidence would move the objection." },
+    { "title": "Response", "text": "A reasoned submission on the law and the facts, supported by evidence assembled with the client." },
+    { "title": "Hearing", "text": "If the objection is maintained, we appear at the hearing with written submissions already on the record." },
+    { "title": "Advertisement to registration", "text": "We watch the journal for the advertisement, handle any opposition, and see the application through to the certificate." }
+  ],
+  "categories": ["Prosecution"]
+}

@@ -1,0 +1,27 @@
+{
+  "slug": "anti-counterfeiting-and-online-enforcement",
+  "order": 5,
+  "title": "Anti-Counterfeiting and Online Enforcement",
+  "short": "Customs recordals, marketplace and platform takedowns, domain disputes and criminal action against counterfeiters.",
+  "intro": [
+    "Counterfeiting and online misuse are volume problems, and they need a programme rather than a series of one-off reactions. We design and run enforcement programmes that combine border measures, platform procedures, domain name recovery and, where warranted, criminal complaints and raids.",
+    "The aim is always commercial: reduce the volume of infringing goods and listings to a level the business can live with, at a cost that makes sense, and build the record that supports civil action against the serious offenders."
+  ],
+  "services": [
+    "Recordation of trademarks with Indian Customs under the IPR (Imported Goods) Enforcement Rules and handling of detentions",
+    "Takedown programmes on e-commerce marketplaces, app stores and social media platforms",
+    "Domain name disputes under the INDRP and UDRP, and recovery of infringing domains",
+    "Investigations, test purchases and evidence preservation",
+    "Criminal complaints under Sections 103 and 104 of the Trade Marks Act and coordination of search and seizure",
+    "Civil actions against repeat infringers, importers and distributors",
+    "Brand protection guidelines and enforcement playbooks for in-house teams",
+    "Training of distributors, customs officers and enforcement agencies in identifying genuine goods"
+  ],
+  "process": [
+    { "title": "Mapping", "text": "Where the problem actually is: ports, platforms, physical markets or domains, and which rights can be used against it." },
+    { "title": "Programme design", "text": "A written enforcement plan with priorities, procedures and a budget, agreed with the business." },
+    { "title": "Execution", "text": "Recordals, takedowns, complaints and actions run on a schedule, with evidence preserved for later use." },
+    { "title": "Reporting", "text": "Periodic reports on volumes, outcomes and cost, so that the programme can be adjusted." }
+  ],
+  "categories": ["Enforcement"]
+}

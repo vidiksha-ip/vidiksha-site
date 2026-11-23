@@ -1,0 +1,27 @@
+{
+  "slug": "international-filings",
+  "order": 8,
+  "title": "International Filings and the Madrid Protocol",
+  "short": "Protection for Indian brands abroad and Indian protection for foreign brand owners, through the Madrid system and a network of associates.",
+  "intro": [
+    "Indian businesses now sell, manufacture and license abroad from early in their lives, and foreign brands enter India expecting counsel that works the way their home firms do. We handle both directions: international filings for Indian applicants through the Madrid Protocol and national routes, and Indian filings, prosecution and enforcement for foreign applicants and their counsel.",
+    "We advise on where to file and in what order, manage foreign associates where national filings are needed, respond to provisional refusals, and keep a single consolidated docket so that a brand owner sees its worldwide position in one place."
+  ],
+  "services": [
+    "International applications under the Madrid Protocol with India as the office of origin",
+    "Filing strategy across jurisdictions: Madrid versus national routes, timing, priority and budgets",
+    "Management of national filings abroad through a vetted network of foreign associates",
+    "Indian designations of international registrations, including responses to provisional refusals",
+    "Indian filings, prosecution, oppositions and enforcement for foreign applicants and law firms",
+    "Subsequent designations, transformation and replacement under the Madrid system",
+    "Consolidated worldwide docketing and status reporting",
+    "Advice on foreign brand clearance before export or launch"
+  ],
+  "process": [
+    { "title": "Market plan", "text": "Which countries matter now, which will matter in three years, and what the budget allows." },
+    { "title": "Route selection", "text": "A written recommendation on Madrid, national or combined filing, with costs for each." },
+    { "title": "Filing and prosecution", "text": "Applications filed and prosecuted, with provisional refusals handled by us or by associates under our supervision." },
+    { "title": "One docket", "text": "Every foreign and Indian right reported through a single consolidated schedule." }
+  ],
+  "categories": ["Strategy", "Prosecution"]
+}

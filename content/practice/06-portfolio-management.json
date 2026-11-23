@@ -1,0 +1,27 @@
+{
+  "slug": "portfolio-management",
+  "order": 6,
+  "title": "Portfolio Management and Watch",
+  "short": "Renewals, recordals, watch services and audits that keep a portfolio enforceable and aligned with the business.",
+  "intro": [
+    "A trademark portfolio decays unless someone is paying attention. Renewals lapse, assignments go unrecorded, the business changes its name and its products while the register still describes the company of ten years ago. We manage portfolios so that every registration is current, correctly owned and covers what the business actually sells.",
+    "We maintain the docket, run watch services for conflicting applications, record changes of ownership and name, and periodically audit the portfolio against the business to recommend what to file, what to renew and what to let go."
+  ],
+  "services": [
+    "Docketing and management of renewal deadlines under Section 25, including restoration of lapsed marks",
+    "Recordal of assignments, changes of name and address, mergers and licences",
+    "Trademark watch services across the Indian Journal and, through associates, foreign registers",
+    "Portfolio audits and rationalisation against current and planned business activity",
+    "Due diligence on trademark portfolios in acquisitions, investments and financing",
+    "Management of Indian portfolios for foreign brand owners and their counsel, with reporting in the required format",
+    "Certified copies, status reports and legalised documents for use abroad",
+    "Advice on correct use and marking to preserve distinctiveness"
+  ],
+  "process": [
+    { "title": "Intake", "text": "We take over the portfolio, verify every record against the Registry and correct discrepancies." },
+    { "title": "Docket", "text": "Deadlines are docketed with reminders to the client well in advance of each action." },
+    { "title": "Watch", "text": "Conflicting applications are reported with a recommendation on whether to act." },
+    { "title": "Review", "text": "An annual review of the portfolio against the business, with filing and pruning recommendations." }
+  ],
+  "categories": ["Portfolio", "Strategy"]
+}

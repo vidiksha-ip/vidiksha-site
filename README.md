@@ -1,275 +1,31 @@
-# VIDIKSHA — marketing site
+# Vidiksha IP — firm website
 
-Static site for VIDIKSHA, a practical IP law education platform. Built with a small, dependency-free Node script: content lives in Markdown and JSON files under `content/`, the build turns them into plain HTML in `dist/`. No framework, no npm packages, nothing to update.
+Website for Vidiksha IP, a boutique trademark law firm in India. A static site built by a small, dependency-free Node script: content lives in JSON and Markdown under `content/`, the build turns it into plain HTML in `dist/`. No framework, no npm packages.
 
 ## Run it
 
 ```bash
-npm run build      # local build: content/ + src/ -> dist/, including the research data for local use
-npm run dev        # build, then serve dist/ at http://localhost:4321 (serve.js checks logins for the research data)
+npm run build      # content/ + src/ -> dist/
+npm run dev        # build, then serve dist/ at http://localhost:4321
 ```
 
 Requires Node 18 or newer.
 
-## Deployment: vidiksha.in on GitHub Pages
+## Content
 
-The public site is static and lives on GitHub Pages at https://vidiksha.in. The two things a static host cannot do are handled by services the site already uses: Supabase holds the member accounts and the research data (served only to signed-in members from a private Storage bucket), and the Google Apps Script web app receives registrations directly. There is no server to run.
-
-**One-time set-up**
-
-1. **Repository.** Create an empty repository on GitHub (any name, for example `vidiksha-site`; private or public both work with Pages on a free account only if public, so make it public or use a paid plan). Push this folder to its `main` branch. `.github/workflows/pages.yml` builds with `node build.js --production` and publishes `dist/` on every push.
-2. **Pages.** In the repository: Settings → Pages → Source: **GitHub Actions**. After the first workflow run, under Custom domain enter `vidiksha.in`, save, and tick **Enforce HTTPS** once the certificate is issued (a few minutes after DNS resolves).
-3. **DNS at Hostinger.** hPanel → Domains → vidiksha.in → DNS / Name Servers → DNS records. Remove any existing A or CNAME records for `@` and `www` that point at Hostinger parking, then add:
-
-   | Type | Name | Value | TTL |
-   |---|---|---|---|
-   | A | @ | 185.199.108.153 | 3600 |
-   | A | @ | 185.199.109.153 | 3600 |
-   | A | @ | 185.199.110.153 | 3600 |
-   | A | @ | 185.199.111.153 | 3600 |
-   | CNAME | www | `<github-username>.github.io` | 3600 |
-
-   Propagation takes minutes to an hour. `www.vidiksha.in` redirects to the apex automatically once both are set.
-4. **Supabase Storage for the research data.** Run `supabase/migrations/0003_research_storage.sql` in the SQL Editor (creates the private `research` bucket and the members-only read policy). Then, on your machine, after a local `npm run build`:
-
-   ```bash
-   set SUPABASE_SERVICE_KEY=<secret key: Project Settings -> API Keys -> Secret keys -> default>
-   python scripts/research-upload.py
-   ```
-
-   This uploads about 13,000 small JSON files (280 MB) to the bucket, takes 10 to 20 minutes, and only re-uploads changed files on later runs. The secret key is used on your machine only; never commit it.
-5. **Supabase URLs.** Authentication → URL Configuration: Site URL `https://vidiksha.in`; redirect URLs `https://vidiksha.in/research/` and `https://vidiksha.in/live-training/register/*`.
-
-**Every later change**: edit content, commit, push. Pages rebuilds in about a minute. Re-run the upload script only when the research index itself is regenerated.
-
-**Bandwidth note.** The research data is served by Supabase Storage, whose free tier allows 5 GB of egress a month. A member's first visit loads about 9 MB; each search a few hundred KB; each judgment opened 20 to 100 KB. That is roughly 300 to 500 active members a month on the free tier; the Pro plan ($25/month) raises it to 250 GB.
-
-**Self-hosting instead.** `node serve.js` still serves everything from `dist/` with the research data behind its own login check and the registration endpoint built in, for any Node host or VPS. Build without `--production` for that.
-
-## Layout of the project
-
-```
-content/
-  site.json            site-wide settings and copy: name, URLs, nav, hero, FAQs, about page
-  blog/*.md            one Markdown file per post
-  courses/*.json       one JSON file per course
-  training/*.json      one JSON file per live training session
-src/
-  styles/main.css      all styles (design tokens at the top; dark mode via prefers-color-scheme)
-  scripts/main.js      nav toggle, scroll fade-ins, blog filter/search, form handling
-  assets/              favicon, default OpenGraph image
-lib/
-  md.js                Markdown + front matter parser
-  html.js              layout and shared components (cards, newsletter)
-  pages.js             one function per page type
-build.js               reads content, writes dist/, plus sitemap.xml, feed.xml, robots.txt
-serve.js               local preview server
-```
-
-Every page gets a title, meta description, canonical URL, OpenGraph and Twitter tags, and JSON-LD (`Organization` on the home page, `Article` on posts, `Course` on course pages). The build also writes `sitemap.xml`, an RSS `feed.xml` for the blog, and `robots.txt`.
-
-## Add a blog post
-
-Create `content/blog/<slug>.md`. The file name becomes the URL (`/blog/<slug>/`). Front matter at the top, Markdown below:
-
-```markdown
----
-title: How to respond to a Section 9 trademark objection
-description: One or two sentences. Used on cards, in meta tags and in the RSS feed.
-date: 2026-10-08
-category: Trademark
-course: trademark-prosecution-in-practice
----
-
-Body in Markdown. Headings (##), lists, bold, links, blockquotes, tables and fenced code all work.
-```
-
-- `category` must be one of `Trademark`, `Patent`, `Copyright`, `Design`, `Licensing`. It drives the blog filter.
-- `course` (optional) is the slug of the course to promote at the end of the post. Without it, the first course in the same area is used.
-- `author` (optional) is used only in the structured data, never shown on the page; it defaults to the site name. Instructors and speakers are deliberately not named anywhere on the site.
-- `draft: true` keeps a post out of the build.
-- Reading time is calculated from the word count. Posts are sorted by `date`, newest first. The home page shows the latest three.
-
-## Add a course
-
-Create `content/courses/<slug>.json`. Copy an existing file; the fields are:
-
-| Field | What it is |
+| Where | What |
 |---|---|
-| `title`, `subtitle`, `summary` | Headline, one-line pitch (used as meta description), card blurb |
-| `area` | `Trademark`, `Patent`, `Copyright`, `Design` or `Licensing`; matches blog categories |
-| `level`, `duration`, `price` | Free text, free text, integer in INR (GST-inclusive) |
-| `enrolOpen` | `true` turns on the site's own enrolment page at `/courses/<slug>/enrol/` with Razorpay payment (see "Course enrolment and payments"). Without it the course shows "Ask about this course" |
-| `outcomes` | "What you will actually be able to do" list. First four appear on the home page if featured |
-| `about` | Array of paragraphs |
-| `modules` | Array of `{ "title", "lessons": [...] }`; rendered as the curriculum accordion |
-| `unit`, `unitNote` | Optional. `"sessions"` labels modules as sessions (with "2 hours" on each); `unitNote` adds text such as "2 hours each, recorded" |
-| `access` | Optional. Shown on the enrol card in place of "Lifetime access", for example "Recording access for 2 months from the date of registration" |
-| `kit` | Optional. `{ "title", "intro", "items": [...] }` renders a numbered "at your doorstep" section for a physical kit |
-| `includes`, `whoFor`, `notFor`, `faq` | Sidebar list, "take it if", "skip it if", and `{ "q", "a" }` pairs |
-| `order` | Sort position on the courses page |
-| `featured` | `true` on exactly one course puts it on the home page and marks it "Most popular" |
+| `content/site.json` | Firm name, contact details, navigation, and all the copy on the home, firm and contact pages. Fill in `phone` and `offices` before launch. |
+| `content/practice/*.json` | One file per practice area. `order` sets the sequence; `categories` links the area to related insight articles. |
+| `content/people/*.json` | One file per lawyer. Copy `_template.json`, drop the underscore, fill it in. Photos go in `content/people/media/` and are referenced as `/people/media/<file>`. Files starting with `_` are ignored. |
+| `content/insights/*.md` | Articles. Front matter needs `title`, `description`, `date` and a `category` from: Prosecution, Oppositions, Enforcement, Licensing, Portfolio, Strategy. |
 
-## Add a live training session
+The Bar Council disclaimer shown on first visit is in `site.json` under `disclaimer`. The enquiry form posts to `formEndpoint`; until that is set to a real endpoint (for example a Formspree form), submissions are acknowledged on the page but not sent anywhere.
 
-Create `content/training/<slug>.json`. Sessions are listed at `/live-training/`:
+## Deployment
 
-```json
-{
-  "title": "Preparation of Exam Report Responses (Trademark Prosecution)",
-  "summary": "Two or three sentences on what gets covered.",
-  "area": "Trademark",
-  "datetime": "2026-10-25T16:00:00+05:30",
-  "duration": 180,
-  "format": "Real Registry examination report + live drafting",
-  "certificate": "Certificate of Training on successful completion",
-  "price": 0,
-  "registerUrl": "https://...",
-  "replayUrl": "https://..."
-}
-```
+The site publishes to GitHub Pages at the domain in `site.json`. `.github/workflows/pages.yml` runs `node build.js --production` and publishes `dist/` on every push to `main`. The production build writes the `CNAME` file for the custom domain.
 
-`datetime` is the start in IST and `duration` is minutes; the pages show the range ("4 pm to 7 pm IST") and whole hours as "3 hours". `format` and `certificate` are optional lines shown as ticks on the card. Whether a session is upcoming or past is decided by `datetime` at build time, so rebuild after the session to move it to replays. `price: 0` shows as free; any other price is labelled "inaugural". Course prices are labelled "inaugural price" everywhere they appear; to drop that label later, search `lib/` for the word. Add `replayUrl` once the recording is up; until then past sessions show "Replay coming soon". The earliest upcoming session is featured on the home page.
+## Legacy
 
-## Member accounts
-
-The Research tab is public: anyone can search the case law repository without an account, and the website has no login button. Accounts (Supabase Auth: email and password, confirmation emails, password resets) exist for the learning portal and are created by course purchases and live-training registrations; the site keeps a member table alongside them.
-
-What is in the database (`supabase/migrations/0001_members.sql`):
-
-- `auth.users`: managed by Supabase Auth. Email, hashed password, confirmation and reset tokens.
-- `public.profiles`: one row per member, filled automatically from the sign-up form by a trigger: full name, organisation, role (law student, junior lawyer, in-house counsel, founder and so on), created and last-login timestamps.
-- `public.research_logins`: one row per login to the repository, with a timestamp and user agent.
-- `public.member_overview`: a view for the dashboard joining the two.
-
-Row level security means a member can only read or change their own rows; the Supabase dashboard sees everything.
-
-Set-up, once, in a Supabase account of your choosing:
-
-1. Create a project (any region; Mumbai, `ap-south-1`, is closest to your users). In **Project Settings → API** copy the **Project URL** and the **publishable** (anon) key.
-2. Open **SQL Editor**, paste the contents of `supabase/migrations/0001_members.sql`, run it.
-3. In **Authentication → URL Configuration** set the Site URL to the site's address (for local testing, `http://localhost:4321`) and add `http://localhost:4321/research/` and the production `/research/` URL to the redirect list, so password-reset links land on the Research page.
-4. Put the URL and key in `content/site.json` under `supabase`, or set `SUPABASE_URL` and `SUPABASE_ANON_KEY` in the environment of the server. Rebuild.
-5. Optional: **Authentication → Providers → Email** lets you turn off "Confirm email" while testing; leave it on in production.
-
-### Live training registration, recordings, feedback and certificates
-
-The registration page (`/live-training/register/<slug>/`) asks for full name, email, WhatsApp number, profession, academic qualification and a password. Submitting posts to the payments function's `/register-session` route, which:
-
-1. creates the registrant's VIDIKSHA account with that password (email confirmed by the server, so **no confirmation email**), or links the registration to the existing account for that email (the password is checked; if it differs, the page tells them their existing password still applies);
-2. stores the row in `training_registrations` and posts it to the Google Sheet;
-3. returns the session's WhatsApp group link, which the page shows under "Thank you for registering".
-
-The account has **no course access**: it opens the learning portal, where the Live training page lists the registrant's sessions. After a session ends (start time plus length), the recording set in the control panel appears there (a link such as YouTube unlisted, or an mp4 uploaded to the private bucket, which streams only to that session's registrants), and the registrant must submit feedback (rating, text, LinkedIn profile, consent to publish) before **Download certificate** unlocks. The certificate is a PDF generated by the function (`/certificate`), numbered `VID/CERT/<FY>/<n>`; staff can untick Attended for no-shows, which blocks the certificate. Course purchases with the same email land in the same account.
-
-**Testimonials.** On a session's page in the control panel, "Publish consented feedback to vidiksha.in" writes every consented piece of feedback (all sessions) to `content/testimonials.json`; the live training page shows up to nine as "What participants say", with name, profession, organisation and LinkedIn link. Migration 0013 adds the feedback table, the certificate numbering and the registrants' read access.
-
-**Passwords.** There is no self-service password reset: the portal, the welcome email and the registration page tell members to write to team@vidiksha.in, and an admin sets a new password from the member's page in the control panel (Set password). Signed-in members can still change their own password on the Profile page.
-
-### Emails from noreply@vidiksha.in
-
-Out of the box, confirmation and reset emails come from Supabase's shared sender, which is rate-limited (a few emails an hour) and not branded. Once the vidiksha.in domain exists:
-
-1. Pick a transactional email provider and verify the domain there (Resend, Postmark, Amazon SES, Brevo and SendGrid all work; Resend is the least setup). The provider gives you SMTP credentials and the DNS records (SPF, DKIM, usually a DMARC record) to add at the domain registrar. Without those records, mail from noreply@vidiksha.in lands in spam or is rejected.
-2. In Supabase, **Authentication → Emails → SMTP Settings**: enable custom SMTP, sender email `noreply@vidiksha.in`, sender name `VIDIKSHA`, then the provider's host, port, username and password. Save. From that moment every auth email leaves under the VIDIKSHA address and the rate limit becomes the provider's.
-3. **Authentication → Emails → Templates**: paste the branded templates from `supabase/email-templates/` into "Confirm sign up", "Reset password" and "Change email address", with the subjects noted at the top of each file. They use Supabase's template variables and the site's typography and colours.
-4. **Authentication → URL Configuration**: change the Site URL and redirect list from localhost to `https://vidiksha.in` and `https://vidiksha.in/research/`.
-
-Reply-to can be set to team@vidiksha.in in the same SMTP screen if you want members to be able to answer.
-
-The research data (`dist/research/`: year shards, full-text shards and one text file per judgment, about 350 MB) is built from the committed `content/research/*.jsonl.gz` files on every deploy and published with the site. The private Storage bucket `research` and `scripts/research-upload.py` are no longer used and can be deleted.
-
-## Research: the IP case-law repository
-
-`/research/` is a client-side search over Indian IP judgments, built from [Open India Law](https://github.com/Vaquill-AI/open-india-law) (Vaquill AI, CC BY 4.0; attribution is a licence condition and is printed on the page).
-
-There is no server and no AI anywhere in it: everything is prepared at build time and searched in the browser.
-
-How it works:
-
-1. `scripts/research-index.py` queries the judgment parquet files on the public mirror with DuckDB over HTTP. Nothing is downloaded to disk; only the text columns are streamed. A judgment is kept when any part of its text mentions an IP marker: an IP statute (Trade Marks, Patents, Copyright, Designs, GI, Plant Varieties, Semiconductor), an IP doctrine (passing off, deceptive similarity, well-known mark, prior user, Anton Piller or John Doe orders) or an IP authority (Registrar of Trade Marks, Controller of Patents, IPAB), or when its registry number is an IP Division category. For snapshot v2026.08.1 this gives 12,867 judgments across the Supreme Court and the Delhi, Bombay, Madras, Calcutta and Karnataka High Courts (12,157 by the text markers alone, plus 710 IP Division matters caught by registry number). Each kept judgment gets its areas, a key passage (the highest-priority section the source pipeline detected) and the metadata the corpus carries. Output: `content/research/<court>.json` plus `content/research/<court>.tokens.jsonl.gz`, the distinct tokens of each judgment's full text.
-2. `npm run build` merges those files, cleans titles and party names, shards the records by year into `dist/research/data/<year>.json`, writes `manifest.json` with counts by year, court, area and outcome, and builds the full-text index: every token of every judgment goes into an inverted index sharded by hash into 128 files under `dist/research/fts/` (about 21 MB in total, 165 KB per shard). Tokens present in more than 35% of judgments are dropped as stopwords.
-   Facets are derived at the same time, all by fixed rules in `scripts/research_tags.py` and `build.js`: legal issues (about 35, from phrase patterns with a minimum hit count), industries, statutes cited, proceeding type (from the registry number and the parties), bench strength (from the coram), judgment length (from the chunk count) and the most frequent judges. Edit the pattern tables to add or rename a facet; every tag is traceable to the words that triggered it.
-3. `src/scripts/research.js` loads the manifest, then the year shards newest-first, and filters in the browser. Facet counts are recomputed against the current results (each facet counted over judgments that pass every other filter), active filters show as removable chips, and tags on a result can be clicked to apply them as filters. For each keyword it fetches only the index shards for that keyword's tokens, so a search costs a few hundred kilobytes, not the whole index. A keyword matches a judgment when it appears in the metadata or key passage, or when every token of it appears in the judgment's full text. Keywords are AND-ed. Section references are tokenised specially so "section 29", "9(1)(b)" and "3(d)" work. Results are always sorted newest first. Search state lives in the URL, so a search can be shared.
-
-4. Each result can open its **relevant paragraphs** or the **whole judgment**. The judgment text is published as one JSON file per judgment under `dist/research/text/` (paragraphs with page numbers, overlaps between the source's text chunks removed), fetched only when a result is opened. The browser scores every paragraph against the keywords and the selected legal-issue patterns (`dist/research/issues.json`, the same rules that produced the facet) and shows the top five with the matches highlighted, or all paragraphs with the matching ones marked. The first three results of any active search open automatically. Nothing is summarised or generated; the paragraphs are the judgment's own.
-5. **Official PDF links.** The corpus carries no document URLs, but the judgment PDFs are public on the AWS Open Data Registry (Dattam Labs mirrors of judgments.ecourts.gov.in and scr.sci.gov.in, CC BY 4.0). `scripts/research-links.py` resolves each High Court judgment by listing its CNR prefix in the bucket's year/court/bench partition, and each Supreme Court judgment through the dataset's per-year metadata, and writes `content/research/links.json`. The build attaches the link as "Official PDF"; a judgment that could not be matched gets a link to the eCourts search page instead.
-
-To refresh or extend the index:
-
-```bash
-pip install duckdb
-python scripts/research-index.py supreme-court delhi bombay madras calcutta karnataka
-python scripts/research-index.py gujarat telangana        # add more courts
-python scripts/research-index.py --all                    # every court (streams ~27 GB of text; hours)
-python scripts/research-links.py                          # official PDF links (one S3 listing per judgment; minutes)
-npm run build
-```
-
-Where the data lives: a local build writes it to `dist/research/` (about 13,000 small files, 280 MB) for `serve.js`; the production build leaves it out and the page reads it from the private Supabase Storage bucket instead (see Deployment). `.tokens.jsonl.gz` and `.text.jsonl.gz` are not committed, since the index script regenerates them; the per-court JSON records and `links.json` are.
-
-A court takes a few minutes per gigabyte of text at typical mirror throughput. The six courts above are the Supreme Court and the High Courts that carry India's IP docket. When Open India Law publishes a new snapshot, change `BASE` in the script and re-run. The tokeniser lives in both `scripts/research-index.py` and `src/scripts/research.js`; if you change one, change the other.
-
-The corpus does not carry judgment URLs, so each result shows its identifiers (registry number, neutral citation, CNR-style id) and a "Find the full judgment" search link. Nothing here is legal advice; the page says so.
-
-## Learning portal and control panel (lms/)
-
-Two more static apps live in `lms/`, sharing one Supabase project with the site:
-
-- **Learning portal**, `lms/portal/`, for portal.vidiksha.in. Students sign in with the account created at purchase (the credentials in the welcome email). Dashboard with their courses and progress, each course's recorded sessions (video player with resume, mark as completed), materials, assignments with file upload and feedback, announcements, messages with the team, profile and password, invoices.
-- **Control panel**, `lms/control/`, for control.vidiksha.in. Staff only. Overview numbers; every member with search, filters and CSV export; each member's enrolments, grants, training registrations, progress, submissions, messages and activity; all enrolments with payment and kit-address details; training registrations by session; per-course content (sessions with video link or upload, drip release dates, publish toggle; materials; assignments; students; batches); a grading queue; announcements for everyone or one course; messages; a blog editor that publishes to vidiksha.in; team management (admins add staff by email).
-
-Both are plain HTML, CSS and JavaScript talking straight to Supabase with the publishable key. There is no server of ours: every permission is a row level security policy in `supabase/migrations/0006_lms.sql`. Videos, materials and submissions sit in private storage buckets (`lms-videos`, `lms-materials`, `lms-submissions`) and are served through short-lived signed URLs to people the policies allow.
-
-**Run locally** (the apps stay on localhost until you are ready to publish them):
-
-```bash
-node lms/serve.js
-```
-
-Portal at http://localhost:4322, control panel at http://localhost:4323. `.claude/launch.json` has entries `lms` and `control` for the preview pane.
-
-**Set-up, once:**
-
-1. Run `supabase/migrations/0006_lms.sql` in the SQL editor.
-2. Make yourself an admin, in the SQL editor: `select public.make_admin('you@example.com');` (the email of your existing VIDIKSHA account). Admins add further staff from the control panel's Team page.
-3. Blog publishing needs a GitHub token: on github.com as `vidiksha-ip`, Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate. Resource owner `vidiksha-ip`, repository access: only `vidiksha-site`, permission **Contents: Read and write**. Then `npx supabase secrets set GITHUB_TOKEN=github_pat_…` and `npx supabase functions deploy publish-post --no-verify-jwt`. A post written in the control panel becomes `content/blog/<slug>.md` in the repository and the site rebuilds itself.
-4. When the portal goes live, tell the payments function so the welcome email links to it: `npx supabase secrets set PORTAL_URL=https://portal.vidiksha.in`. Also add `https://portal.vidiksha.in/` to Supabase → Authentication → URL Configuration → Redirect URLs, so password resets from the portal land back on it.
-
-**Courses.** Courses live in the `courses` table (migration 0009 turned `course_prices` into it; `course_prices` remains as a view for the payments function). Add or edit a course on the control panel's Course content page: every field of the public course page, the price, and two toggles. **Publish on vidiksha.in** writes `content/courses/<slug>.json` to the website repository (through the `publish-post` function, so `GITHUB_TOKEN` must be set) and the site rebuilds; switching it off removes the file and the course disappears from the site. **Enrolment open** makes the site show "Enrol now" and take payment at the course's price. Sessions and their lesson points come from the Sessions tab and are published with the course; after editing them press "Publish changes to vidiksha.in" on the course page. The files under `content/courses/` are therefore generated from the control panel from now on; editing them by hand still works but the next publish from the panel overwrites them.
-
-**Live training sessions.** Sessions live in the `training_sessions` table (migration 0011, seeded from `content/training/`). The control panel's Training sessions page adds, edits, hides, shows and removes them, and lists every session's registrations in a table with a CSV export. "Show on vidiksha.in" writes `content/training/<slug>.json` through the `publish-post` function and the site rebuilds; Hide removes the file (the session and its registrations stay in the panel). The files under `content/training/` are generated from the panel from now on.
-
-**Batches.** Every student is in one batch per course and a course can have many batches. One batch per course is *open*: a verified payment or a new grant puts the student there automatically (migration 0010 adds the triggers, and creates "Batch 1" if the course has none). On the course page's Batches tab staff create batches, mark the open one, move students between batches with the dropdown next to each name, and see each batch's progress. The member page shows and changes a student's batch per course. Announcements can be addressed to a batch. The portal shows the student their batch name and dates on the course card and page.
-
-**Videos.** Add a session in the control panel and either paste a link (YouTube unlisted, Vimeo, Loom or Google Drive; the player embeds it) or upload an mp4 to the private bucket. Uploaded files stream only to students with access, through signed URLs that expire in three hours. On the Supabase free plan the per-file upload limit is 50 MB, so two-hour recordings need either the Pro plan (files up to 50 GB, 100 GB storage included) or a video host: Vimeo (unlisted, domain-restricted embeds) or Bunny Stream are the usual choices for paid courses because they stop casual downloading; YouTube unlisted is free but anyone with the link can watch.
-
-**Publishing the two apps (portal.vidiksha.in and control.vidiksha.in).** GitHub Pages serves one site per repository, so each app has its own repository under `vidiksha-ip`: `vidiksha-portal` and `vidiksha-control`. They hold only build output; the source stays here. The `lms` job in `.github/workflows/pages.yml` runs on every push to `main`, builds both apps with `node lms/build.js` and pushes `lms/dist/portal` and `lms/dist/control` to the `gh-pages` branch of the matching repository (each with its `CNAME` file). Set-up, once:
-
-1. Create the two repositories (public, empty) under the `vidiksha-ip` account.
-2. Create a fine-grained personal access token for `vidiksha-ip` with repository access to only those two repositories and **Contents: Read and write**. In the `vidiksha-site` repository: Settings → Secrets and variables → Actions → **New repository secret** `LMS_DEPLOY_TOKEN` with the token, and under **Variables** a variable `LMS_DEPLOY_ENABLED` = `true` (the job is skipped until this exists).
-3. Push to `main` (or Actions → "Build and publish to GitHub Pages" → Run workflow). The `gh-pages` branches appear in both repositories.
-4. In each new repository: Settings → Pages → Source "Deploy from a branch", branch `gh-pages`, folder `/ (root)`, Save; then Custom domain `portal.vidiksha.in` (or `control.vidiksha.in`), Save, and tick Enforce HTTPS once the certificate is issued.
-5. At Hostinger (Domains → vidiksha.in → DNS): two CNAME records, `portal` → `vidiksha-ip.github.io` and `control` → `vidiksha-ip.github.io`.
-6. Supabase → Authentication → URL Configuration: add `https://portal.vidiksha.in/` and `https://control.vidiksha.in/` to the redirect URLs, so password resets land back on the portal.
-7. `npx supabase secrets set PORTAL_URL=https://portal.vidiksha.in` so welcome emails link to the live portal.
-
-Until step 3 runs, both apps exist only on localhost.
-
-**Access rules in one paragraph.** A student has a course for 2 months from payment (`course_enrolments`, status paid) or for as long as a grant says (`course_grants`, added from the member page in the control panel). Students see only published sessions whose release date has passed, materials and published assignments of courses they hold, announcements for everyone or for their courses, and their own submissions, progress, messages and invoices. Staff (`public.staff`) see and edit everything; only admins change the staff list. `course_access` is the view the portal, and any future system, can read to know who owns which course.
-
-## Things to change before launch
-
-All of these are in `content/site.json` unless noted.
-
-- `url`: the production domain. Used for canonical links, OpenGraph, sitemap and RSS.
-- `formEndpoint`: the newsletter and contact forms POST here. Any form backend that accepts a `multipart/form-data` POST works (Formspree, Basin, Netlify Forms, your own endpoint). While it still contains `your-form-id`, the forms show a success message without sending anything.
-- `social`, `email`, `legalName`.
-- `registerUrl` / `replayUrl` in each training session point at placeholder paths on the production domain; courses without `enrolOpen` show "Ask about this course".
-- `src/assets/og-default.svg`: replace with a 1200×630 PNG or JPG if you want link previews on platforms that do not render SVG, and update the `image` default in `lib/html.js`.
-
-## Changing the design
-
-Colours, fonts and spacing are CSS custom properties at the top of `src/styles/main.css`. The system is monochrome: near-white paper (`#fafaf9`), near-black ink (`#0f0e0d`), warm greys, hairline borders and square controls, with one deep green (`#1d4a39`) used only for small marks. The textured green, olive and slate panels on the home page are pure CSS (`.hero-visual`, `.offer-*`), so there are no image assets to maintain. Fonts are Newsreader (display, regular weight) and Instrument Sans (body) from Google Fonts; the `<link>` is in `lib/html.js`.
-
-Fade-in animation is opt-in per element with the `reveal` class and is disabled automatically for users who prefer reduced motion. The site is fully usable with JavaScript off.
+`_legacy/` holds the previous education-platform code (courses, live training, research database, learning portal and the Supabase and Google Sheets integrations). It is not part of the build and can be deleted once nothing in it is needed.

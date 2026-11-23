@@ -1,0 +1,27 @@
+{
+  "slug": "clearance-and-filing",
+  "order": 1,
+  "title": "Clearance and Filing",
+  "short": "Search, availability opinions and applications that are drafted to survive examination and to be worth enforcing.",
+  "intro": [
+    "The strength of a trademark is largely decided on the day it is filed. The mark chosen, the classes covered, the wording of the specification and the claim to prior use all determine what the Registry will accept and what a court will later protect. We spend time at this stage because it is cheaper than every stage that follows.",
+    "Our clearance work goes beyond an identical-mark check. We search the Registry across phonetic and visual variants, review common-law use in the market, and give a written opinion on registrability and risk before a rupee is spent on branding."
+  ],
+  "services": [
+    "Full availability searches across the Indian Trade Marks Registry, including phonetic, device and translated variants",
+    "Common-law and market use investigations",
+    "Written registrability and risk opinions for new brands, rebrands and product launches",
+    "Filing strategy: classes, specifications, series marks, colour and device variants, claims to prior use",
+    "Applications for word, device, label, shape, colour, sound and other non-conventional marks",
+    "Convention priority filings and applications by foreign applicants",
+    "Collective and certification marks",
+    "Well-known mark determinations under Rule 124"
+  ],
+  "process": [
+    { "title": "Brief", "text": "We learn how the mark will actually be used: goods, services, channels, geography and expansion plans." },
+    { "title": "Search and opinion", "text": "A structured search and a written opinion on availability, registrability and the risks that remain." },
+    { "title": "Specification and filing", "text": "Specifications drafted to cover the business as it will be, not only as it is, and filed with the right claims." },
+    { "title": "Through to registration", "text": "The application is docketed, examined and prosecuted by the same team until the certificate issues." }
+  ],
+  "categories": ["Strategy", "Prosecution"]
+}

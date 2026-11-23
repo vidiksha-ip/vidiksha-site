@@ -1,8 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <rect width="1200" height="630" fill="#fafaf9"/>
-  <text x="80" y="110" font-family="'Times New Roman', Times, serif" font-size="30" letter-spacing="3" fill="#0f0e0d">VIDIKSHA</text>
-  <text x="80" y="330" font-family="'Times New Roman', Times, serif" font-size="96" letter-spacing="-2" fill="#0f0e0d">IP law is learned</text>
-  <text x="80" y="432" font-family="'Times New Roman', Times, serif" font-size="96" letter-spacing="-2" fill="#0f0e0d">by doing. <tspan fill="#6f6c66">Start doing.</tspan></text>
-  <line x1="80" y1="500" x2="1120" y2="500" stroke="#e4e2dd"/>
-  <text x="80" y="548" font-family="Helvetica, Arial, sans-serif" font-size="24" fill="#6f6c66">Practical courses, webinars and articles on Indian trademark, patent, copyright, design and licensing work.</text>
+  <defs><radialGradient id="g" cx="90%" cy="10%" r="70%"><stop offset="0" stop-color="#16314d"/><stop offset="1" stop-color="#0a1a2b"/></radialGradient></defs>
+  <rect width="1200" height="630" fill="url(#g)"/>
+  <circle cx="1000" cy="315" r="230" fill="none" stroke="#b6975e" stroke-opacity="0.5" stroke-width="1"/>
+  <circle cx="1000" cy="315" r="190" fill="none" stroke="#b6975e" stroke-opacity="0.4" stroke-width="1" stroke-dasharray="2 8"/>
+  <circle cx="1000" cy="315" r="140" fill="none" stroke="#f4f1ea" stroke-opacity="0.2" stroke-width="1"/>
+  <text x="1000" y="372" text-anchor="middle" font-family="'Times New Roman',Times,Georgia,serif" font-size="180" font-weight="300" fill="#f4f1ea">V</text>
+  <line x1="80" y1="112" x2="108" y2="112" stroke="#b6975e" stroke-width="1"/>
+  <text x="124" y="118" font-family="Helvetica,Arial,sans-serif" font-size="18" letter-spacing="4" fill="#b6975e">BOUTIQUE TRADEMARK LAW FIRM · INDIA</text>
+  <text x="80" y="300" font-family="'Times New Roman',Times,Georgia,serif" font-size="92" font-weight="300" fill="#f4f1ea">Counsel for the marks</text>
+  <text x="80" y="398" font-family="'Times New Roman',Times,Georgia,serif" font-size="92" font-weight="300" fill="#f4f1ea">your business is known by.</text>
+  <text x="80" y="540" font-family="'Times New Roman',Times,Georgia,serif" font-size="30" letter-spacing="8" fill="#f4f1ea">VIDIKSHA <tspan fill="#d2b885">IP</tspan></text>
 </svg>
