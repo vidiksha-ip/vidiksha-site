@@ -1,12 +1,12 @@
 {
-  "_note": "Site-wide settings and copy for the Vidiksha IP website. Fill phone, offices and people (content/people/) before launch.",
+  "_note": "Site-wide settings and copy for the Vidiksha IP website. Fill phone and offices before launch.",
   "name": "Vidiksha IP",
   "shortName": "VIDIKSHA",
   "legalName": "Vidiksha IP",
   "tagline": "Boutique Trademark Law Firm",
   "description": "Vidiksha IP is a boutique trademark law firm in India. Clearance, filing, prosecution, oppositions, enforcement, anti-counterfeiting, licensing and Madrid filings for Indian and international brand owners.",
   "url": "https://vidiksha.in",
-  "email": "team@vidiksha.in",
+  "email": "deepansh@vidiksha.in",
   "phone": "",
   "formEndpoint": "https://formspree.io/f/your-form-id",
   "offices": [],
@@ -15,13 +15,27 @@
     "x": "https://x.com/vidiksha_ip"
   },
   "nav": [
-    { "label": "Expertise", "href": "/expertise/" },
-    { "label": "People", "href": "/people/" },
-    { "label": "Insights", "href": "/insights/" },
-    { "label": "The Firm", "href": "/about/" },
-    { "label": "Contact", "href": "/contact/" }
+    {
+      "label": "Expertise",
+      "href": "/expertise/"
+    },
+    {
+      "label": "Insights",
+      "href": "/insights/"
+    },
+    {
+      "label": "The Firm",
+      "href": "/about/"
+    },
+    {
+      "label": "Contact",
+      "href": "/contact/"
+    }
   ],
-  "cta": { "label": "Enquire", "href": "/contact/" },
+  "cta": {
+    "label": "Enquire",
+    "href": "/contact/"
+  },
   "footerLine": "A specialist trademark practice for brand owners in India and abroad.",
   "hero": {
     "eyebrow": "Boutique trademark law firm · India",
@@ -40,16 +54,31 @@
     "eyebrow": "The firm",
     "title": "A trademark is the one asset a business cannot replace. We built a firm around protecting it.",
     "text": "Most intellectual property practices treat trademarks as one department among many. We treat them as the whole discipline. Every matter at Vidiksha IP, from a first availability search to a contested injunction, is handled by lawyers who do trademark work and only trademark work, and who have seen how a decision taken at filing plays out years later in an opposition or a courtroom.",
-    "link": { "label": "About the firm", "href": "/about/" }
+    "link": {
+      "label": "About the firm",
+      "href": "/about/"
+    }
   },
   "approach": {
     "eyebrow": "How we work",
     "title": "Specialist by choice. Measured by outcomes.",
     "items": [
-      { "title": "One discipline", "text": "We do not accept patent, corporate or general litigation work. Depth in one area is the service." },
-      { "title": "Senior attention", "text": "Every matter is led by a senior lawyer who reads the file, signs the filing and appears at the hearing." },
-      { "title": "Written for the record", "text": "Advice is given in writing, with the reasoning shown, so that it stands up when the matter is contested." },
-      { "title": "Clear scope and fees", "text": "A defined scope and a fee estimate before work begins. No surprises on the invoice, at any stage." }
+      {
+        "title": "One discipline",
+        "text": "We do not accept patent, corporate or general litigation work. Depth in one area is the service."
+      },
+      {
+        "title": "Senior attention",
+        "text": "Every matter is led by a senior lawyer who reads the file, signs the filing and appears at the hearing."
+      },
+      {
+        "title": "Written for the record",
+        "text": "Advice is given in writing, with the reasoning shown, so that it stands up when the matter is contested."
+      },
+      {
+        "title": "Clear scope and fees",
+        "text": "A defined scope and a fee estimate before work begins. No surprises on the invoice, at any stage."
+      }
     ]
   },
   "sectors": {
@@ -69,11 +98,6 @@
       "International brand owners entering India"
     ]
   },
-  "people": {
-    "eyebrow": "People",
-    "title": "A small team, each of us a trademark specialist.",
-    "text": "Vidiksha IP is deliberately compact. Matters are handled by the lawyers whose names appear on this page, not passed down a chain."
-  },
   "contactBand": {
     "title": "Begin with a conversation.",
     "text": "Tell us about the mark, the matter or the market. We reply within one working day with a view on the way forward and what it would cost."
@@ -91,20 +115,44 @@
       "eyebrow": "What we hold to",
       "title": "Four commitments, on every matter.",
       "items": [
-        { "title": "Candour before comfort", "text": "If a mark is weak, a case is thin or a filing is a waste of money, we say so at the outset, in writing." },
-        { "title": "Precision in the record", "text": "Registry and court files outlive the people who made them. Every submission is drafted to be read by a stranger years from now." },
-        { "title": "Proportion", "text": "The right response to a problem is not always the most aggressive one. We match the remedy to the commercial stakes." },
-        { "title": "Care in the small print", "text": "Specifications, user claims, licence clauses and recordals decide more disputes than courtroom advocacy. We treat them accordingly." }
+        {
+          "title": "Candour before comfort",
+          "text": "If a mark is weak, a case is thin or a filing is a waste of money, we say so at the outset, in writing."
+        },
+        {
+          "title": "Precision in the record",
+          "text": "Registry and court files outlive the people who made them. Every submission is drafted to be read by a stranger years from now."
+        },
+        {
+          "title": "Proportion",
+          "text": "The right response to a problem is not always the most aggressive one. We match the remedy to the commercial stakes."
+        },
+        {
+          "title": "Care in the small print",
+          "text": "Specifications, user claims, licence clauses and recordals decide more disputes than courtroom advocacy. We treat them accordingly."
+        }
       ]
     },
     "engagement": {
       "eyebrow": "Working with us",
       "title": "How an engagement runs.",
       "items": [
-        { "title": "Conflict check", "text": "Every enquiry is cleared against our existing matters before we read anything confidential." },
-        { "title": "Scope and estimate", "text": "You receive a written scope, a professional fee estimate and the official fees involved before any work begins." },
-        { "title": "A single point of contact", "text": "One lawyer owns the matter and reports on it. You will not have to explain the history twice." },
-        { "title": "Reporting on a schedule", "text": "Deadlines, Registry actions and court dates are docketed and reported to you in advance, not after the fact." }
+        {
+          "title": "Conflict check",
+          "text": "Every enquiry is cleared against our existing matters before we read anything confidential."
+        },
+        {
+          "title": "Scope and estimate",
+          "text": "You receive a written scope, a professional fee estimate and the official fees involved before any work begins."
+        },
+        {
+          "title": "A single point of contact",
+          "text": "One lawyer owns the matter and reports on it. You will not have to explain the history twice."
+        },
+        {
+          "title": "Reporting on a schedule",
+          "text": "Deadlines, Registry actions and court dates are docketed and reported to you in advance, not after the fact."
+        }
       ]
     }
   },
@@ -113,5 +161,15 @@
     "text": "The Bar Council of India does not permit advertisement or solicitation by advocates in any form or manner. By accessing this website, you acknowledge and confirm that you are seeking information relating to Vidiksha IP of your own accord and that there has been no form of solicitation, advertisement or inducement by Vidiksha IP or any of its members. The content of this website is for informational purposes only and should not be interpreted as soliciting or advertisement. No material or information provided on this website should be construed as legal advice. Vidiksha IP shall not be liable for the consequences of any action taken by relying on the material or information provided on this website. The contents of this website are the intellectual property of Vidiksha IP.",
     "check": "I have read and accept the above.",
     "button": "Proceed to website"
+  },
+  "founder": {
+    "eyebrow": "Founder",
+    "name": "Deepansh Bhati",
+    "role": "Founder, Vidiksha IP",
+    "photo": "/assets/deepansh-bhati.webp",
+    "bio": [
+      "Deepansh Bhati founded Vidiksha IP and leads every matter the firm takes on. His practice covers the full life of a trademark: clearance and filing strategy, prosecution before the Trade Marks Registry, oppositions and rectification, enforcement before the Commercial Courts and the Intellectual Property Divisions of the High Courts, and the licensing and brand transactions that follow.",
+      "He acts for Indian businesses building brands at home and abroad, and for international brand owners and their counsel who need Indian trademark work handled with the same care and reporting discipline they expect at home."
+    ]
   }
 }

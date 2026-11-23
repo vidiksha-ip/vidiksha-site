@@ -15,9 +15,8 @@ Requires Node 18 or newer.
 
 | Where | What |
 |---|---|
-| `content/site.json` | Firm name, contact details, navigation, and all the copy on the home, firm and contact pages. Fill in `phone` and `offices` before launch. |
+| `content/site.json` | Firm name, contact details, navigation, the founder block (name, role, photo, bio) and all the copy on the home, firm and contact pages. Fill in `phone` and `offices` before launch. |
 | `content/practice/*.json` | One file per practice area. `order` sets the sequence; `categories` links the area to related insight articles. |
-| `content/people/*.json` | One file per lawyer. Copy `_template.json`, drop the underscore, fill it in. Photos go in `content/people/media/` and are referenced as `/people/media/<file>`. Files starting with `_` are ignored. |
 | `content/insights/*.md` | Articles. Front matter needs `title`, `description`, `date` and a `category` from: Prosecution, Oppositions, Enforcement, Licensing, Portfolio, Strategy. |
 
 The Bar Council disclaimer shown on first visit is in `site.json` under `disclaimer`. The enquiry form posts to `formEndpoint`; until that is set to a real endpoint (for example a Formspree form), submissions are acknowledged on the page but not sent anywhere.

@@ -46,15 +46,8 @@ function loadContent() {
     return { ...p, slug, url: `/expertise/${slug}/` };
   }).sort((a, b) => (a.order || 99) - (b.order || 99));
 
-  const people = listFiles(path.join(CONTENT, 'people'), '.json').map((file) => {
-    const p = readJSON(file);
-    const slug = p.slug || slugify(path.basename(file, '.json'));
-    for (const k of ['name', 'role']) if (!p[k]) throw new Error(`${file}: missing "${k}"`);
-    return { ...p, slug, url: `/people/${slug}/` };
-  }).sort((a, b) => (a.order || 99) - (b.order || 99) || a.name.localeCompare(b.name));
-
   site.practiceLinks = practices.map((p) => ({ label: p.title, href: p.url }));
-  return { site, posts, practices, people };
+  return { site, posts, practices };
 }
 
 function copyAssets() {
@@ -62,12 +55,6 @@ function copyAssets() {
   for (const f of fs.readdirSync(path.join(SRC, 'assets'))) fs.copyFileSync(path.join(SRC, 'assets', f), path.join(DIST, 'assets', f));
   fs.copyFileSync(path.join(SRC, 'styles', 'main.css'), path.join(DIST, 'assets', 'main.css'));
   for (const f of fs.readdirSync(path.join(SRC, 'scripts'))) fs.copyFileSync(path.join(SRC, 'scripts', f), path.join(DIST, 'assets', f));
-  // Photos and other media placed in content/people/media/ are served under /people/media/.
-  const media = path.join(CONTENT, 'people', 'media');
-  if (fs.existsSync(media)) {
-    fs.mkdirSync(path.join(DIST, 'people', 'media'), { recursive: true });
-    for (const f of fs.readdirSync(media)) fs.copyFileSync(path.join(media, f), path.join(DIST, 'people', 'media', f));
-  }
 }
 
 function rss(site, posts) {
@@ -117,8 +104,6 @@ function build() {
   emit('/', pages.home(data));
   emit('/expertise/', pages.expertiseIndex(data));
   for (const p of data.practices) emit(p.url, pages.expertise(data, p));
-  emit('/people/', pages.peopleIndex(data));
-  for (const p of data.people) emit(p.url, pages.person(data, p));
   emit('/insights/', pages.insightsIndex(data));
   for (const p of data.posts) emit(p.url, pages.post(data, p));
   emit('/about/', pages.about(data));
@@ -129,13 +114,13 @@ function build() {
   writePage('/robots.txt', `User-agent: *\nAllow: /\nSitemap: ${data.site.url.replace(/\/$/, '')}/sitemap.xml\n`);
 
   // Old URLs from the previous site: send visitors somewhere useful rather than to a 404.
-  const redirects = { '/blog/': '/insights/', '/courses/': '/expertise/', '/live-training/': '/contact/', '/research/': '/insights/' };
+  const redirects = { '/blog/': '/insights/', '/courses/': '/expertise/', '/live-training/': '/contact/', '/research/': '/insights/', '/people/': '/about/' };
   for (const p of data.posts) redirects[`/blog/${p.slug}/`] = p.url;
   for (const [from, to] of Object.entries(redirects)) {
     writePage(from, `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Redirecting</title><meta http-equiv="refresh" content="0; url=${to}"><link rel="canonical" href="${data.site.url.replace(/\/$/, '')}${to}"></head><body><p>This page has moved to <a href="${to}">${to}</a>.</p></body></html>`);
   }
 
-  console.log(`Built ${urls.length} pages (${data.practices.length} practice areas, ${data.people.length} people, ${data.posts.length} insights) in ${Date.now() - t0} ms${PRODUCTION ? ' [production]' : ''}.`);
+  console.log(`Built ${urls.length} pages (${data.practices.length} practice areas, ${data.posts.length} insights) in ${Date.now() - t0} ms${PRODUCTION ? ' [production]' : ''}.`);
 }
 
 build();
